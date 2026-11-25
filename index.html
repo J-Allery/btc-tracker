@@ -1,0 +1,1592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>BTC/USD live</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='16' fill='%23e0a52a'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-size='18' font-family='Georgia,serif' fill='%231a1204'%3E%E2%82%BF%3C/text%3E%3C/svg%3E">
+  <style>
+    :root {
+      --bg: #090a0d;
+      --card: #12151b;
+      --card-2: #0e1116;
+      --line: rgba(244, 236, 220, 0.1);
+      --text: #f6f1e7;
+      --muted: #9a9286;
+      --faint: #6f6a62;
+      --gold: #e7b84a;
+      --gold-2: #a97820;
+      --up: #3dce8e;
+      --down: #ff5d6c;
+      --shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+      --sans: "Segoe UI", "Avenir Next", "Helvetica Neue", ui-sans-serif, system-ui, sans-serif;
+      --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Segoe UI Mono", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      color: var(--text);
+      font-family: var(--sans);
+      background:
+        radial-gradient(900px 480px at 12% -10%, rgba(231, 184, 74, 0.16), transparent 55%),
+        radial-gradient(700px 420px at 100% 0%, rgba(61, 206, 142, 0.06), transparent 46%),
+        var(--bg);
+    }
+    button, input, select { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+    .wrap {
+      width: min(1040px, calc(100% - 28px));
+      margin: 28px auto 56px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+    .brand { display: flex; gap: 12px; align-items: center; }
+    .mark {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle at 35% 30%, #ffe7a8, #e0a52a 58%, #8a5a10);
+      color: #1a1204;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 26px;
+      font-weight: 700;
+      box-shadow: 0 0 0 4px rgba(224, 165, 42, 0.14);
+    }
+    h1 { font-size: 20px; line-height: 1.1; margin: 0; font-weight: 650; letter-spacing: -0.02em; }
+    .pair { margin: 3px 0 0; color: var(--muted); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; }
+    .status-block { text-align: right; }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px 6px 8px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--line);
+      font-size: 13px;
+    }
+    #updated { display: block; margin-top: 6px; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--faint);
+      flex: none;
+    }
+    .dot.fresh { background: var(--up); animation: pulse 1.8s ease-out infinite; }
+    .dot.quiet, .dot.wait { background: var(--gold); }
+    .dot.wait { animation: pulse 1.2s ease-out infinite; }
+    .dot.down { background: var(--down); }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(61, 206, 142, 0.55); }
+      100% { box-shadow: 0 0 0 8px rgba(61, 206, 142, 0); }
+    }
+
+    .card {
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.015));
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+    }
+    .hero { padding: 8px 8px 18px; margin-bottom: 14px; }
+    .prices {
+      display: grid;
+      grid-template-columns: 1.35fr 0.9fr;
+      gap: 8px;
+    }
+    .price-pane { padding: 18px 18px 8px; position: relative; overflow: hidden; }
+    .price-pane + .price-pane { border-left: 1px solid var(--line); }
+    .kicker {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+    .px {
+      margin: 0;
+      font-family: var(--mono);
+      font-weight: 560;
+      letter-spacing: -0.04em;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+    #price { font-size: clamp(44px, 7vw, 76px); }
+    #blend { font-size: clamp(32px, 4.6vw, 48px); }
+    .px.stale-px { color: var(--faint); }
+    .subrow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: baseline;
+      margin-top: 12px;
+      min-height: 24px;
+    }
+    .change { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 16px; font-weight: 600; }
+    .change.up, .up { color: var(--up); }
+    .change.down, .down { color: var(--down); }
+    .change.flat { color: var(--muted); }
+    .hint { color: var(--muted); font-size: 13px; }
+    .spread-figure { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 18px; margin: 0; }
+    .who { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+
+    .flash-up { animation: flashUp 0.7s ease; }
+    .flash-down { animation: flashDown 0.7s ease; }
+    @keyframes flashUp {
+      0% { color: var(--up); text-shadow: 0 0 22px rgba(61, 206, 142, 0.45); }
+      100% { color: var(--text); text-shadow: none; }
+    }
+    @keyframes flashDown {
+      0% { color: var(--down); text-shadow: 0 0 22px rgba(255, 93, 108, 0.4); }
+      100% { color: var(--text); text-shadow: none; }
+    }
+
+    .exchanges { padding: 4px 18px 8px; }
+    .ex {
+      display: grid;
+      grid-template-columns: 14px minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      padding: 11px 0;
+      border-top: 1px solid var(--line);
+    }
+    .ex-name { margin: 0; font-size: 15px; font-weight: 620; }
+    .ex-sub { margin: 2px 0 0; color: var(--faint); font-size: 12px; }
+    .ex-right { text-align: right; }
+    .ex-price {
+      font-family: var(--mono);
+      font-variant-numeric: tabular-nums;
+      font-size: 16px;
+      font-weight: 620;
+      letter-spacing: -0.03em;
+    }
+    .ex-price.stale { color: var(--faint); }
+    .ex-dir { font-size: 11px; margin-right: 6px; }
+
+    details.method { padding: 0 18px 16px; color: var(--muted); font-size: 13px; line-height: 1.45; }
+    details.method summary { cursor: pointer; color: var(--muted); }
+    details.method p { margin: 8px 0 0; max-width: 78ch; }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      padding: 4px 18px 18px;
+    }
+    .stat {
+      background: var(--card-2);
+      border-radius: 12px;
+      padding: 12px 14px;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+    }
+    .stat dt { margin: 0; color: var(--muted); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
+    .stat dd { margin: 6px 0 0; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 18px; }
+    .stat .minor { display: block; margin-top: 4px; color: var(--muted); font-family: var(--sans); font-size: 12px; letter-spacing: 0; text-transform: none; }
+
+    .chart-card, .alert-card { margin-top: 14px; padding: 16px 16px 14px; }
+    .chart-head, .alert-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    h2 { margin: 0; font-size: 16px; font-weight: 640; letter-spacing: -0.01em; }
+    .ranges {
+      display: flex;
+      gap: 4px;
+      padding: 4px;
+      border-radius: 999px;
+      background: #0c0e13;
+      border: 1px solid var(--line);
+    }
+    .ranges button {
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 7px 12px;
+      font-size: 13px;
+      font-weight: 650;
+    }
+    .ranges button[aria-selected="true"] { background: var(--gold); color: #1a1406; }
+    .chart-note { margin: 0 0 8px; color: var(--faint); font-size: 12px; }
+    .chart-frame { position: relative; height: 320px; border-radius: 12px; background: #0c0e13; overflow: hidden; }
+    #chart { width: 100%; height: 100%; display: block; }
+    .chart-overlay[hidden] { display: none !important; }
+    .chart-overlay {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      align-content: center;
+      gap: 10px;
+      background: rgba(12, 14, 19, 0.78);
+      text-align: center;
+      padding: 16px;
+    }
+    .chart-overlay p { margin: 0; color: var(--muted); }
+    .chart-overlay button, .alert-form button, .ghost {
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 14px;
+      background: var(--gold);
+      color: #1a1406;
+      font-weight: 700;
+    }
+    .ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
+
+    .alert-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .alert-form select, .alert-form input {
+      background: #0c0e13;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .alert-form input { width: 150px; font-family: var(--mono); }
+    .alert-card.armed { border-color: rgba(231, 184, 74, 0.5); }
+    #alert-note { margin: 10px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; min-height: 1.2em; }
+
+    footer { margin-top: 18px; color: var(--faint); font-size: 12px; line-height: 1.5; max-width: 78ch; }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%);
+      width: min(440px, calc(100% - 24px));
+      background: #1c160d;
+      color: var(--text);
+      border: 1px solid rgba(231, 184, 74, 0.55);
+      border-radius: 14px;
+      padding: 12px 14px;
+      box-shadow: var(--shadow);
+      z-index: 5;
+    }
+
+    @media (max-width: 720px) {
+      .prices { grid-template-columns: 1fr; }
+      .price-pane + .price-pane { border-left: 0; border-top: 1px solid var(--line); }
+      header { flex-direction: column; }
+      .status-block { text-align: left; }
+      .chart-frame { height: 240px; }
+      .stats { grid-template-columns: 1fr 1fr; }
+      .stats .stat:last-child { grid-column: 1 / -1; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .flash-up, .flash-down, .dot.fresh, .dot.wait { animation: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <div class="brand">
+        <div class="mark" aria-hidden="true">₿</div>
+        <div>
+          <h1>Bitcoin</h1>
+          <p class="pair">BTC / USD spot</p>
+        </div>
+      </div>
+      <div class="status-block">
+        <div class="status">
+          <span class="dot wait" id="status-dot"></span>
+          <span id="status-text">Connecting…</span>
+        </div>
+        <time id="updated">Waiting for the first quote</time>
+      </div>
+    </header>
+
+    <section class="card hero" aria-label="Live prices">
+      <div class="prices">
+        <div class="price-pane">
+          <p class="kicker">Coinbase</p>
+          <p class="px" id="price">—</p>
+          <div class="subrow">
+            <span class="change flat" id="change">—</span>
+            <span class="hint">24h</span>
+          </div>
+        </div>
+        <div class="price-pane">
+          <p class="kicker">Blended median</p>
+          <p class="px" id="blend">—</p>
+          <p class="spread-figure" id="spread">Spread —</p>
+          <p class="who" id="blend-who">Waiting for fresh quotes</p>
+        </div>
+      </div>
+
+      <div class="exchanges" id="exchanges"></div>
+      <details class="method">
+        <summary>How the blend is calculated</summary>
+        <p>
+          The blend is the median of quotes that arrived in the last 10 seconds.
+          Coinbase, Kraken, and Binance.US contribute their last trade. Bitstamp
+          contributes the midpoint of its best bid and ask, because its trades
+          print less often. Binance global prints BTCUSDT; that price is multiplied
+          by a USDT/USD rate, the median of fresh Coinbase, Kraken, and Binance.US
+          prints, held for up to 60 seconds if the peg goes quiet. A feed older
+          than 10 seconds leaves the median. The spread is the highest fresh quote
+          minus the lowest.
+        </p>
+      </details>
+
+      <div class="stats">
+        <div class="stat">
+          <dt>24h high</dt>
+          <dd id="high">—</dd>
+        </div>
+        <div class="stat">
+          <dt>24h low</dt>
+          <dd id="low">—</dd>
+        </div>
+        <div class="stat">
+          <dt>24h volume</dt>
+          <dd><span id="volume">—</span><span class="minor" id="volume-usd"></span></dd>
+        </div>
+      </div>
+    </section>
+
+    <section class="card chart-card" aria-label="Price chart">
+      <div class="chart-head">
+        <h2>Price</h2>
+        <div class="ranges" role="tablist" aria-label="Chart range">
+          <button type="button" role="tab" data-range="live" aria-selected="true">Live</button>
+          <button type="button" role="tab" data-range="1h" aria-selected="false">1H</button>
+          <button type="button" role="tab" data-range="24h" aria-selected="false">24H</button>
+          <button type="button" role="tab" data-range="7d" aria-selected="false">7D</button>
+        </div>
+      </div>
+      <p class="chart-note" id="chart-note">Loading Coinbase history…</p>
+      <div class="chart-frame">
+        <canvas id="chart" role="img" aria-label="Bitcoin price chart"></canvas>
+        <div class="chart-overlay" id="chart-overlay">
+          <p id="chart-overlay-text">Loading market history…</p>
+          <button type="button" id="chart-retry" hidden>Try again</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card alert-card" id="alert-card">
+      <div class="alert-head">
+        <h2>Price alert</h2>
+      </div>
+      <form class="alert-form" id="alert-form">
+        <label class="hint" for="alert-dir">When the blend is</label>
+        <select id="alert-dir">
+          <option value="above">above</option>
+          <option value="below">below</option>
+        </select>
+        <input id="alert-price" type="number" inputmode="decimal" min="0" step="0.01" placeholder="60000" aria-label="Alert price in US dollars" autocomplete="off">
+        <button type="submit" id="alert-toggle">Arm alert</button>
+      </form>
+      <p id="alert-note">A tone and, where the browser allows it, a notification. Saved on this device. Fires on the blended median.</p>
+    </section>
+
+    <footer>
+      Market data is streamed from public Coinbase Exchange, Kraken, Bitstamp, Binance, and Binance.US feeds. No API key is required. Figures are for information, not a trading quote or financial advice.
+    </footer>
+  </main>
+  <div class="toast" id="toast" hidden role="status"></div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    var FRESH_MS = 10000;
+    var USDT_HOLD_MS = 60000;
+    var ALERT_KEY = "btc-usd-tracker-alert";
+
+    var usd = new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+    var btcFmt = new Intl.NumberFormat("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+    var compactUsd = new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      notation: "compact",
+      maximumFractionDigits: 2
+    });
+
+    var feeds = [
+      {
+        id: "coinbase",
+        name: "Coinbase",
+        kind: "Last trade",
+        url: "wss://ws-feed.exchange.coinbase.com",
+        open: function (ws) {
+          ws.send(JSON.stringify({
+            type: "subscribe",
+            product_ids: ["BTC-USD", "USDT-USD"],
+            channels: ["ticker", "heartbeat"]
+          }));
+        },
+        onMessage: function (msg) {
+          if (!msg || msg.type !== "ticker") return;
+          if (msg.product_id === "BTC-USD") {
+            var price = number(msg.price);
+            if (!saneBtc(price)) return;
+            noteStats({
+              open: number(msg.open_24h),
+              high: number(msg.high_24h),
+              low: number(msg.low_24h),
+              volume: number(msg.volume_24h),
+              source: "Coinbase"
+            });
+            setFeedPrice("coinbase", price, "ws");
+          } else if (msg.product_id === "USDT-USD") {
+            setUsdt("coinbase", number(msg.price));
+          }
+        }
+      },
+      {
+        id: "kraken",
+        name: "Kraken",
+        kind: "Last trade",
+        url: "wss://ws.kraken.com/v2",
+        open: function (ws) {
+          ws.send(JSON.stringify({
+            method: "subscribe",
+            params: { channel: "ticker", symbol: ["BTC/USD", "USDT/USD"], snapshot: true }
+          }));
+        },
+        onMessage: function (msg) {
+          if (!msg || msg.channel !== "ticker" || !msg.data) return;
+          for (var i = 0; i < msg.data.length; i++) {
+            var row = msg.data[i];
+            if (row.symbol === "BTC/USD") {
+              var price = number(row.last);
+              if (!saneBtc(price)) continue;
+              if (!stats.open || Date.now() - stats.at > 20000) {
+                noteStats({
+                  open: price - number(row.change),
+                  high: number(row.high),
+                  low: number(row.low),
+                  volume: number(row.volume),
+                  source: "Kraken"
+                });
+              }
+              setFeedPrice("kraken", price, "ws");
+            } else if (row.symbol === "USDT/USD") {
+              setUsdt("kraken", number(row.last));
+            }
+          }
+        }
+      },
+      {
+        id: "bitstamp",
+        name: "Bitstamp",
+        kind: "Book mid",
+        url: "wss://ws.bitstamp.net",
+        open: function (ws) {
+          ws.send(JSON.stringify({
+            event: "bts:subscribe",
+            data: { channel: "order_book_btcusd" }
+          }));
+        },
+        onMessage: function (msg) {
+          if (!msg) return;
+          if (msg.event === "bts:request_reconnect") {
+            failSocket("bitstamp");
+            return;
+          }
+          if (msg.event !== "data" || !msg.data || !msg.data.bids || !msg.data.asks) return;
+          var bid = number(msg.data.bids[0] && msg.data.bids[0][0]);
+          var ask = number(msg.data.asks[0] && msg.data.asks[0][0]);
+          if (!saneBtc(bid) || !saneBtc(ask) || ask < bid || ask - bid > 500) return;
+          setFeedPrice("bitstamp", (bid + ask) / 2, "ws");
+        }
+      },
+      {
+        id: "binance",
+        name: "Binance",
+        kind: "BTCUSDT × USDT/USD",
+        url: "wss://data-stream.binance.vision/ws/btcusdt@trade",
+        open: function () {},
+        onMessage: function (msg) {
+          if (!msg || msg.e !== "trade") return;
+          var price = number(msg.p);
+          if (!saneBtc(price)) return;
+          btcUsdt.price = price;
+          btcUsdt.at = Date.now();
+          publishBinance();
+        }
+      },
+      {
+        id: "binanceus",
+        name: "Binance.US",
+        kind: "Last trade",
+        url: "wss://stream.binance.us:9443/stream?streams=btcusd@trade/usdtusd@trade",
+        open: function () {},
+        onMessage: function (msg) {
+          var data = msg && msg.data ? msg.data : msg;
+          if (!data || data.e !== "trade") return;
+          var price = number(data.p);
+          var stream = (msg && msg.stream) || "";
+          if (stream.indexOf("usdtusd") !== -1 || data.s === "USDTUSD") {
+            setUsdt("binanceus", price);
+            return;
+          }
+          if (!saneBtc(price)) return;
+          setFeedPrice("binanceus", price, "ws");
+        }
+      }
+    ];
+
+    var byId = {};
+    feeds.forEach(function (feed) {
+      feed.price = null;
+      feed.prev = null;
+      feed.dir = "";
+      feed.at = 0;
+      feed.conn = "connecting";
+      feed.via = "";
+      feed.attempt = 0;
+      feed.gen = 0;
+      feed.socket = null;
+      feed.watch = 0;
+      byId[feed.id] = feed;
+    });
+
+    var usdt = {
+      coinbase: { price: null, at: 0 },
+      kraken: { price: null, at: 0 },
+      binanceus: { price: null, at: 0 }
+    };
+    var btcUsdt = { price: null, at: 0 };
+    var stats = { open: null, high: null, low: null, volume: null, source: "", at: 0 };
+    var blend = { value: null };
+    var reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    var alertState = {
+      enabled: false,
+      direction: "above",
+      price: null,
+      latched: false,
+      seen: false,
+      lastFire: 0
+    };
+
+    var RANGES = {
+      live: { label: "Live", granularity: 60, seconds: 30 * 60, mode: "line" },
+      "1h": { label: "1H", granularity: 60, seconds: 60 * 60, mode: "candle" },
+      "24h": { label: "24H", granularity: 300, seconds: 24 * 60 * 60, mode: "candle" },
+      "7d": { label: "7D", granularity: 3600, seconds: 7 * 24 * 60 * 60, mode: "candle" }
+    };
+    var chart = {
+      range: "live",
+      view: "live",
+      points: [],
+      candles: [],
+      hover: null,
+      req: 0,
+      caption: "Coinbase",
+      sourceName: "Coinbase"
+    };
+    var drawQueued = false;
+    var toastTimer = 0;
+    var audioCtx = null;
+
+    var el = {
+      price: document.getElementById("price"),
+      change: document.getElementById("change"),
+      blend: document.getElementById("blend"),
+      spread: document.getElementById("spread"),
+      blendWho: document.getElementById("blend-who"),
+      high: document.getElementById("high"),
+      low: document.getElementById("low"),
+      volume: document.getElementById("volume"),
+      volumeUsd: document.getElementById("volume-usd"),
+      statusDot: document.getElementById("status-dot"),
+      statusText: document.getElementById("status-text"),
+      updated: document.getElementById("updated"),
+      exchanges: document.getElementById("exchanges"),
+      chart: document.getElementById("chart"),
+      chartNote: document.getElementById("chart-note"),
+      overlay: document.getElementById("chart-overlay"),
+      overlayText: document.getElementById("chart-overlay-text"),
+      retry: document.getElementById("chart-retry"),
+      alertCard: document.getElementById("alert-card"),
+      alertForm: document.getElementById("alert-form"),
+      alertDir: document.getElementById("alert-dir"),
+      alertPrice: document.getElementById("alert-price"),
+      alertToggle: document.getElementById("alert-toggle"),
+      alertNote: document.getElementById("alert-note"),
+      toast: document.getElementById("toast")
+    };
+
+    function number(value) {
+      var n = typeof value === "number" ? value : parseFloat(value);
+      return n;
+    }
+    function saneBtc(price) {
+      return isFinite(price) && price > 100 && price < 10000000;
+    }
+    function saneUsdt(price) {
+      return isFinite(price) && price > 0.9 && price < 1.1;
+    }
+    function setText(node, text) {
+      if (node.textContent !== text) node.textContent = text;
+    }
+    function flash(node, dir) {
+      if (!node || !dir || reducedMotion) return;
+      node.classList.remove("flash-up", "flash-down");
+      void node.offsetWidth;
+      node.classList.add(dir === "up" ? "flash-up" : "flash-down");
+    }
+    function isFresh(feed) {
+      return !!(feed && feed.at && isFinite(feed.price) && Date.now() - feed.at <= FRESH_MS);
+    }
+    function median(values) {
+      if (!values.length) return null;
+      var copy = values.slice().sort(function (a, b) { return a - b; });
+      var mid = Math.floor(copy.length / 2);
+      if (copy.length % 2) return copy[mid];
+      return (copy[mid - 1] + copy[mid]) / 2;
+    }
+    function agePhrase(at) {
+      if (!at) return "no quote yet";
+      var seconds = Math.max(0, (Date.now() - at) / 1000);
+      if (seconds < 1) return "just now";
+      if (seconds < 10) return Math.floor(seconds) + "s ago";
+      if (seconds < 60) return "stale · " + Math.round(seconds) + "s";
+      return "stale · " + Math.round(seconds / 60) + "m";
+    }
+    function clock(at) {
+      return new Date(at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" });
+    }
+    function signedUsd(n) {
+      var sign = n > 0 ? "+" : n < 0 ? "−" : "";
+      return sign + usd.format(Math.abs(n));
+    }
+    function signedPct(n) {
+      var sign = n > 0 ? "+" : n < 0 ? "−" : "";
+      return sign + Math.abs(n).toFixed(2) + "%";
+    }
+
+    function buildRows() {
+      feeds.forEach(function (feed) {
+        var row = document.createElement("div");
+        row.className = "ex";
+        row.innerHTML =
+          '<span class="dot wait"></span>' +
+          '<div><p class="ex-name"></p><p class="ex-sub"></p></div>' +
+          '<div class="ex-right"><span class="ex-dir"></span><span class="ex-price">—</span></div>';
+        row.querySelector(".ex-name").textContent = feed.name;
+        feed.els = {
+          dot: row.querySelector(".dot"),
+          sub: row.querySelector(".ex-sub"),
+          dir: row.querySelector(".ex-dir"),
+          price: row.querySelector(".ex-price")
+        };
+        el.exchanges.appendChild(row);
+      });
+    }
+
+    function dotClass(feed) {
+      if (isFresh(feed)) return "fresh";
+      if (feed.conn === "open") return "quiet";
+      if (feed.conn === "connecting" || feed.conn === "reconnecting") return "wait";
+      return "down";
+    }
+
+    function renderFeed(feed) {
+      var fresh = isFresh(feed);
+      setText(feed.els.price, isFinite(feed.price) ? usd.format(feed.price) : "—");
+      feed.els.price.classList.toggle("stale", !fresh);
+      feed.els.dir.className = "ex-dir " + (feed.dir || "");
+      setText(feed.els.dir, feed.dir === "up" ? "▲" : feed.dir === "down" ? "▼" : "");
+      var via = feed.via === "poll" ? "Polled" : feed.kind;
+      if (feed.id === "binance" && isFinite(feed.rate)) {
+        via = "BTCUSDT × " + feed.rate.toFixed(5);
+      }
+      setText(feed.els.sub, via + " · " + (feed.conn === "open" || feed.at ? agePhrase(feed.at) : "connecting"));
+      feed.els.dot.className = "dot " + dotClass(feed);
+    }
+
+    function setFeedPrice(id, price, via) {
+      var feed = byId[id];
+      if (!feed || !saneBtc(price)) return;
+      var prev = feed.price;
+      var changed = prev == null || Math.abs(price - prev) >= 0.005;
+      if (changed && prev != null) {
+        feed.dir = price > prev ? "up" : "down";
+        flash(feed.els.price, feed.dir);
+      }
+      feed.prev = prev;
+      feed.price = price;
+      feed.at = Date.now();
+      feed.via = via || feed.via;
+      if (id === "coinbase" && changed) flash(el.price, feed.dir);
+      renderFeed(feed);
+      renderHero();
+      renderBlend();
+      if (id === "coinbase") maybeChart("coinbase");
+    }
+
+    function noteStats(next) {
+      if (!isFinite(next.open) || next.open <= 0) return;
+      if (!isFinite(next.high) || !isFinite(next.low) || !isFinite(next.volume)) return;
+      if (stats.source === "Coinbase" && next.source !== "Coinbase" && Date.now() - stats.at < 20000) return;
+      stats.open = next.open;
+      stats.high = next.high;
+      stats.low = next.low;
+      stats.volume = next.volume;
+      stats.source = next.source;
+      stats.at = Date.now();
+      renderStats();
+    }
+
+    function renderHero() {
+      var feed = byId.coinbase;
+      setText(el.price, isFinite(feed.price) ? usd.format(feed.price) : "—");
+      el.price.classList.toggle("stale-px", isFinite(feed.price) && !isFresh(feed));
+      if (isFinite(feed.price) && isFinite(stats.open) && stats.open > 0) {
+        var delta = feed.price - stats.open;
+        var pct = (delta / stats.open) * 100;
+        setText(el.change, signedUsd(delta) + "   " + signedPct(pct));
+        el.change.className = "change " + (delta > 0.005 ? "up" : delta < -0.005 ? "down" : "flat");
+      }
+    }
+
+    function renderStats() {
+      setText(el.high, isFinite(stats.high) ? usd.format(stats.high) : "—");
+      setText(el.low, isFinite(stats.low) ? usd.format(stats.low) : "—");
+      if (isFinite(stats.volume)) {
+        setText(el.volume, btcFmt.format(stats.volume) + " BTC");
+        var px = isFinite(byId.coinbase.price) ? byId.coinbase.price : blend.value;
+        setText(el.volumeUsd, isFinite(px) ? "≈ " + compactUsd.format(stats.volume * px) + " · " + stats.source : stats.source);
+      }
+    }
+
+    function freshQuotes() {
+      return feeds.filter(isFresh);
+    }
+
+    function renderBlend() {
+      var fresh = freshQuotes();
+      var prices = fresh.map(function (feed) { return feed.price; });
+      var med = median(prices);
+      if (med != null && blend.value != null && Math.abs(med - blend.value) >= 0.005) {
+        flash(el.blend, med > blend.value ? "up" : "down");
+      }
+      var changed = med != null && (blend.value == null || Math.abs(med - blend.value) >= 0.005);
+      blend.value = med;
+      setText(el.blend, med == null ? "—" : usd.format(med));
+      if (fresh.length >= 2) {
+        var hi = fresh[0], lo = fresh[0];
+        fresh.forEach(function (feed) {
+          if (feed.price > hi.price) hi = feed;
+          if (feed.price < lo.price) lo = feed;
+        });
+        var spread = hi.price - lo.price;
+        var bps = med ? (spread / med) * 10000 : 0;
+        setText(el.spread, "Spread " + usd.format(spread) + " · " + bps.toFixed(1) + " bp");
+        setText(el.blendWho, fresh.length + " fresh · high " + hi.name + " · low " + lo.name);
+      } else if (fresh.length === 1) {
+        setText(el.spread, "Spread —");
+        setText(el.blendWho, "1 fresh feed · " + fresh[0].name);
+      } else {
+        setText(el.spread, "Spread —");
+        setText(el.blendWho, "No quote newer than 10 seconds");
+      }
+      if (changed) {
+        evaluateAlert(med);
+        maybeChart("blend");
+      }
+    }
+
+    function usdtRate() {
+      var now = Date.now();
+      var rows = [usdt.coinbase, usdt.kraken, usdt.binanceus].filter(function (row) {
+        return saneUsdt(row.price) && now - row.at <= USDT_HOLD_MS;
+      });
+      if (!rows.length) return null;
+      var hot = rows.filter(function (row) { return now - row.at <= FRESH_MS; });
+      var pool = hot.length ? hot : rows;
+      return {
+        value: median(pool.map(function (row) { return row.price; })),
+        age: now - pool.reduce(function (min, row) { return Math.min(min, now - row.at); }, 1e15)
+      };
+    }
+
+    function setUsdt(source, price) {
+      if (!saneUsdt(price) || !usdt[source]) return;
+      usdt[source].price = price;
+      usdt[source].at = Date.now();
+      publishBinance();
+    }
+
+    function publishBinance() {
+      var rate = usdtRate();
+      if (!rate || !saneBtc(btcUsdt.price) || Date.now() - btcUsdt.at > FRESH_MS) return;
+      var usdPrice = btcUsdt.price * rate.value;
+      byId.binance.rate = rate.value;
+      setFeedPrice("binance", usdPrice, "ws");
+    }
+
+    function renderStatus() {
+      var fresh = freshQuotes().length;
+      var open = feeds.filter(function (feed) { return feed.conn === "open"; }).length;
+      var text, dot;
+      if (fresh > 0) {
+        text = "Live · " + fresh + " of " + feeds.length + " fresh";
+        dot = "fresh";
+      } else if (byId.coinbase.via === "poll" && Date.now() - byId.coinbase.at < 8000) {
+        text = "Polling · Coinbase";
+        dot = "wait";
+      } else if (open > 0) {
+        text = "Connected · waiting for quotes";
+        dot = "wait";
+      } else {
+        text = "Reconnecting";
+        dot = "wait";
+      }
+      if (el.statusText.textContent !== text) el.statusText.textContent = text;
+      el.statusDot.className = "dot " + dot;
+      var latest = 0;
+      feeds.forEach(function (feed) { if (feed.at > latest) latest = feed.at; });
+      if (latest) {
+        setText(el.updated, clock(latest) + " · " + agePhrase(latest).replace("stale · ", ""));
+        el.updated.dateTime = new Date(latest).toISOString();
+      }
+      var px = isFinite(byId.coinbase.price) ? byId.coinbase.price : blend.value;
+      if (isFinite(px)) document.title = "BTC " + usd.format(px);
+    }
+
+    function connect(feed) {
+      var gen = ++feed.gen;
+      feed.conn = feed.attempt ? "reconnecting" : "connecting";
+      renderFeed(feed);
+      var ws;
+      try {
+        ws = new WebSocket(feed.url);
+      } catch (err) {
+        scheduleReconnect(feed, gen);
+        return;
+      }
+      feed.socket = ws;
+      var opened = false;
+      var openTimer = setTimeout(function () {
+        if (gen !== feed.gen) return;
+        try { ws.close(); } catch (err) {}
+      }, 8000);
+
+      ws.onopen = function () {
+        if (gen !== feed.gen) return;
+        opened = true;
+        clearTimeout(openTimer);
+        feed.attempt = 0;
+        feed.conn = "open";
+        renderFeed(feed);
+        try { feed.open(ws); } catch (err) {}
+        armWatch(feed, gen, ws);
+      };
+      ws.onmessage = function (event) {
+        if (gen !== feed.gen) return;
+        armWatch(feed, gen, ws);
+        var msg;
+        try { msg = JSON.parse(event.data); } catch (err) { return; }
+        try { feed.onMessage(msg); } catch (err) {}
+      };
+      ws.onerror = function () {};
+      ws.onclose = function () {
+        if (gen !== feed.gen) return;
+        clearTimeout(openTimer);
+        clearTimeout(feed.watch);
+        feed.conn = "reconnecting";
+        renderFeed(feed);
+        if (!opened) feed.attempt += 1;
+        scheduleReconnect(feed, gen);
+      };
+    }
+
+    function armWatch(feed, gen, ws) {
+      clearTimeout(feed.watch);
+      feed.watch = setTimeout(function () {
+        if (gen !== feed.gen) return;
+        try { ws.close(); } catch (err) {}
+      }, 25000);
+    }
+
+    function scheduleReconnect(feed, gen) {
+      var delay = Math.min(12000, 500 * Math.pow(2, Math.min(feed.attempt, 4))) + Math.floor(Math.random() * 400);
+      setTimeout(function () {
+        if (gen !== feed.gen) return;
+        connect(feed);
+      }, delay);
+    }
+
+    function failSocket(id) {
+      var feed = byId[id];
+      if (!feed || !feed.socket) return;
+      try { feed.socket.close(); } catch (err) {}
+    }
+
+    function pollFallback() {
+      var coinbaseStale = Date.now() - byId.coinbase.at > 5000;
+      var statsStale = !stats.open || Date.now() - stats.at > 15000;
+      if (!coinbaseStale && !statsStale) return;
+      pollCoinbase().catch(function () {
+        return pollKraken();
+      }).catch(function () {});
+    }
+
+    function pollCoinbase() {
+      return Promise.all([
+        fetch("https://api.exchange.coinbase.com/products/BTC-USD/ticker", { cache: "no-store", referrerPolicy: "no-referrer" }).then(asJson),
+        fetch("https://api.exchange.coinbase.com/products/BTC-USD/stats", { cache: "no-store", referrerPolicy: "no-referrer" }).then(asJson)
+      ]).then(function (pair) {
+        var ticker = pair[0];
+        var snapshot = pair[1];
+        noteStats({
+          open: number(snapshot.open),
+          high: number(snapshot.high),
+          low: number(snapshot.low),
+          volume: number(snapshot.volume),
+          source: "Coinbase"
+        });
+        if (Date.now() - byId.coinbase.at > 3000) setFeedPrice("coinbase", number(ticker.price), "poll");
+      });
+    }
+
+    function pollKraken() {
+      return fetch("https://api.kraken.com/0/public/Ticker?pair=XBTUSD", { cache: "no-store", referrerPolicy: "no-referrer" })
+        .then(asJson)
+        .then(function (body) {
+          var result = body && body.result ? body.result : {};
+          var key = Object.keys(result)[0];
+          var row = result[key];
+          if (!row) throw new Error("kraken");
+          var price = number(row.c && row.c[0]);
+          noteStats({
+            open: number(row.o),
+            high: number(row.h && row.h[1]),
+            low: number(row.l && row.l[1]),
+            volume: number(row.v && row.v[1]),
+            source: "Kraken"
+          });
+          if (Date.now() - byId.kraken.at > 3000) setFeedPrice("kraken", price, "poll");
+        });
+    }
+
+    function asJson(response) {
+      if (!response.ok) throw new Error("http");
+      return response.json();
+    }
+
+    function maybeChart(origin) {
+      var useBlend = !isFresh(byId.coinbase) && blend.value != null;
+      if (useBlend) {
+        if (origin === "blend") pushChart(blend.value, "Blended median");
+        return;
+      }
+      if (origin === "coinbase" && isFinite(byId.coinbase.price)) pushChart(byId.coinbase.price, "Coinbase");
+    }
+
+    function pushChart(price, sourceName) {
+      var spec = RANGES[chart.view];
+      if (!spec || !saneBtc(price)) return;
+      var now = Date.now();
+      chart.sourceName = sourceName;
+      if (spec.mode === "line") {
+        var points = chart.points;
+        var last = points[points.length - 1];
+        if (!last || now - last.t >= 300 || Math.abs(last.p - price) >= 0.01) points.push({ t: now, p: price });
+        else { last.t = now; last.p = price; }
+        var cutoff = now - spec.seconds * 1000;
+        while (points.length > 2 && points[0].t < cutoff) points.shift();
+        if (points.length > 4000) points.splice(0, points.length - 4000);
+      } else if (chart.candles.length) {
+        var bucketMs = spec.granularity * 1000;
+        var bucket = Math.floor(now / bucketMs) * bucketMs;
+        var candle = chart.candles[chart.candles.length - 1];
+        if (bucket <= candle.t) {
+          candle.c = price;
+          if (price > candle.h) candle.h = price;
+          if (price < candle.l) candle.l = price;
+        } else {
+          chart.candles.push({ t: bucket, o: candle.c, h: price, l: price, c: price, v: 0 });
+          var start = now - spec.seconds * 1000;
+          while (chart.candles.length && chart.candles[0].t < start) chart.candles.shift();
+        }
+      }
+      setText(el.chartNote, spec.label + " · " + sourceName + (spec.mode === "line" ? " · last 30 minutes" : ""));
+      requestDraw();
+    }
+
+    function showOverlay(text, canRetry) {
+      el.overlay.hidden = false;
+      setText(el.overlayText, text);
+      el.retry.hidden = !canRetry;
+    }
+    function hideOverlay() {
+      el.overlay.hidden = true;
+      el.retry.hidden = true;
+    }
+
+    function loadRange(range, silent) {
+      var spec = RANGES[range];
+      var id = ++chart.req;
+      if (!silent) showOverlay("Loading " + spec.label.toLowerCase() + " history…");
+      fetchCandles(spec).then(function (candles) {
+        if (id !== chart.req || chart.range !== range) return;
+        applyCandles(range, candles);
+        chart.view = range;
+        chart.sourceName = chart.historySource || "Coinbase";
+        hideOverlay();
+        setText(el.chartNote, spec.label + " · " + chart.sourceName + (spec.mode === "line" ? " · last 30 minutes" : " candles"));
+        requestDraw();
+      }).catch(function () {
+        if (id !== chart.req || chart.range !== range) return;
+        chart.view = range;
+        if (spec.mode === "line" && chart.points.length) hideOverlay();
+        else if (!silent) showOverlay("Couldn't load price history. Live ticks will still draw once a feed is in.", true);
+        requestDraw();
+      });
+    }
+
+    function applyCandles(range, candles) {
+      var spec = RANGES[range];
+      if (spec.mode === "line") {
+        var seeded = candles.map(function (candle) {
+          return { t: candle.t + spec.granularity * 1000, p: candle.c };
+        });
+        var seedEnd = seeded.length ? seeded[seeded.length - 1].t : 0;
+        var extra = chart.points.filter(function (point) { return point.t > seedEnd; });
+        chart.points = seeded.concat(extra);
+        chart.candles = candles;
+      } else {
+        var previous = chart.candles[chart.candles.length - 1];
+        chart.candles = candles;
+        if (previous && chart.candles.length) {
+          var last = chart.candles[chart.candles.length - 1];
+          if (previous.t === last.t) {
+            last.c = previous.c;
+            last.h = Math.max(last.h, previous.h);
+            last.l = Math.min(last.l, previous.l);
+          } else if (previous.t > last.t) {
+            chart.candles.push(previous);
+          }
+        }
+      }
+    }
+
+    function fetchCandles(spec) {
+      var end = Date.now();
+      var start = end - spec.seconds * 1000;
+      return fetchCoinbaseCandles(spec.granularity, start, end).then(function (rows) {
+        chart.historySource = "Coinbase";
+        return rows;
+      }).catch(function () {
+        return fetchKrakenCandles(spec.granularity, start).then(function (rows) {
+          chart.historySource = "Kraken";
+          return rows;
+        });
+      });
+    }
+
+    function fetchCoinbaseCandles(granularity, startMs, endMs) {
+      var start = new Date(startMs).toISOString().replace(/\.\d{3}Z$/, "Z");
+      var end = new Date(endMs).toISOString().replace(/\.\d{3}Z$/, "Z");
+      var url = "https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=" + granularity +
+        "&start=" + encodeURIComponent(start) + "&end=" + encodeURIComponent(end);
+      return fetch(url, { cache: "no-store", referrerPolicy: "no-referrer" }).then(asJson).then(function (rows) {
+        if (!Array.isArray(rows) || !rows.length) throw new Error("candles");
+        return rows.map(function (row) {
+          return { t: row[0] * 1000, l: +row[1], h: +row[2], o: +row[3], c: +row[4], v: +row[5] };
+        }).filter(function (candle) {
+          return [candle.o, candle.h, candle.l, candle.c].every(function (n) { return isFinite(n); });
+        }).sort(function (a, b) { return a.t - b.t; });
+      });
+    }
+
+    function fetchKrakenCandles(granularity, startMs) {
+      var interval = Math.round(granularity / 60);
+      return fetch("https://api.kraken.com/0/public/OHLC?pair=XBTUSD&interval=" + interval, {
+        cache: "no-store",
+        referrerPolicy: "no-referrer"
+      }).then(asJson).then(function (body) {
+        var result = body && body.result ? body.result : {};
+        var key = Object.keys(result).filter(function (name) { return name !== "last"; })[0];
+        var rows = result[key];
+        if (!rows || !rows.length) throw new Error("ohlc");
+        return rows.map(function (row) {
+          return { t: row[0] * 1000, o: +row[1], h: +row[2], l: +row[3], c: +row[4], v: +row[6] };
+        }).filter(function (candle) { return candle.t >= startMs - granularity * 1000; });
+      });
+    }
+
+    function requestDraw() {
+      if (drawQueued) return;
+      drawQueued = true;
+      requestAnimationFrame(function () {
+        drawQueued = false;
+        draw();
+      });
+    }
+
+    function draw() {
+      var canvas = el.chart;
+      var ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      var rect = canvas.getBoundingClientRect();
+      var width = rect.width;
+      var height = rect.height;
+      if (width < 20 || height < 20) return;
+      var dpr = Math.min(window.devicePixelRatio || 1, 2);
+      var pxW = Math.round(width * dpr);
+      var pxH = Math.round(height * dpr);
+      if (canvas.width !== pxW || canvas.height !== pxH) {
+        canvas.width = pxW;
+        canvas.height = pxH;
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, width, height);
+
+      var spec = RANGES[chart.view];
+      var lineMode = spec.mode === "line";
+      var series = lineMode ? chart.points : chart.candles;
+      if (!series.length) return;
+
+      var pad = { l: 12, r: width < 460 ? 58 : 74, t: 16, b: 28 };
+      var plot = { x: pad.l, y: pad.t, w: width - pad.l - pad.r, h: height - pad.t - pad.b };
+      if (plot.w < 20 || plot.h < 20) return;
+
+      var min = Infinity;
+      var max = -Infinity;
+      if (lineMode) {
+        series.forEach(function (point) {
+          if (point.p < min) min = point.p;
+          if (point.p > max) max = point.p;
+        });
+      } else {
+        series.forEach(function (candle) {
+          if (candle.l < min) min = candle.l;
+          if (candle.h > max) max = candle.h;
+        });
+      }
+      if (!isFinite(min) || !isFinite(max)) return;
+      if (min === max) { min -= 1; max += 1; }
+      var padY = (max - min) * 0.08;
+      min -= padY;
+      max += padY;
+      var t0 = series[0].t;
+      var t1 = series[series.length - 1].t + (lineMode ? 0 : spec.granularity * 1000);
+      if (t1 <= t0) t1 = t0 + 1;
+
+      function yOf(price) { return plot.y + ((max - price) / (max - min)) * plot.h; }
+      function xOf(time) { return plot.x + ((time - t0) / (t1 - t0)) * plot.w; }
+
+      ctx.font = "12px " + getComputedStyle(document.body).fontFamily;
+      ctx.lineWidth = 1;
+      ctx.textBaseline = "middle";
+      var steps = 4;
+      for (var i = 0; i <= steps; i++) {
+        var value = min + ((max - min) * i) / steps;
+        var y = yOf(value);
+        ctx.strokeStyle = "rgba(255,255,255,0.06)";
+        ctx.beginPath();
+        ctx.moveTo(plot.x, y);
+        ctx.lineTo(plot.x + plot.w, y);
+        ctx.stroke();
+        ctx.fillStyle = "#8d877c";
+        ctx.textAlign = "left";
+        ctx.fillText(axisLabel(value, max - min), plot.x + plot.w + 8, y);
+      }
+
+      ctx.textBaseline = "top";
+      ctx.fillStyle = "#8d877c";
+      var ticks = width < 460 ? 2 : 4;
+      for (var t = 0; t <= ticks; t++) {
+        var time = t0 + ((t1 - t0) * t) / ticks;
+        var label = timeLabel(time, chart.view);
+        var x = xOf(time);
+        if (t === 0) {
+          ctx.textAlign = "left";
+          x = plot.x;
+        } else if (t === ticks) {
+          ctx.textAlign = "right";
+          x = plot.x + plot.w;
+        } else {
+          ctx.textAlign = "center";
+        }
+        ctx.fillText(label, x, plot.y + plot.h + 8);
+      }
+
+      var lastPrice = lineMode ? series[series.length - 1].p : series[series.length - 1].c;
+      var firstPrice = lineMode ? series[0].p : series[0].o;
+      var rising = lastPrice >= firstPrice;
+      var color = rising ? "#3dce8e" : "#ff5d6c";
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(plot.x, plot.y, plot.w, plot.h);
+      ctx.clip();
+
+      if (lineMode && series.length >= 2) {
+        ctx.beginPath();
+        series.forEach(function (point, index) {
+          var x = xOf(point.t);
+          var y = yOf(point.p);
+          if (index === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.lineJoin = "round";
+        ctx.stroke();
+        ctx.lineTo(xOf(series[series.length - 1].t), plot.y + plot.h);
+        ctx.lineTo(xOf(series[0].t), plot.y + plot.h);
+        ctx.closePath();
+        var gradient = ctx.createLinearGradient(0, plot.y, 0, plot.y + plot.h);
+        gradient.addColorStop(0, rising ? "rgba(61,206,142,0.28)" : "rgba(255,93,108,0.25)");
+        gradient.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = gradient;
+        ctx.fill();
+      } else if (lineMode) {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(xOf(series[0].t), yOf(series[0].p), 3, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        series.forEach(function (candle) {
+          var center = xOf(candle.t + spec.granularity * 500);
+          var slot = Math.max(2, (plot.w * spec.granularity * 1000) / (t1 - t0));
+          var body = Math.max(1.5, Math.min(12, slot * 0.68));
+          var up = candle.c >= candle.o;
+          ctx.strokeStyle = up ? "#3dce8e" : "#ff5d6c";
+          ctx.fillStyle = ctx.strokeStyle;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(center, yOf(candle.h));
+          ctx.lineTo(center, yOf(candle.l));
+          ctx.stroke();
+          var top = yOf(Math.max(candle.o, candle.c));
+          var bottom = yOf(Math.min(candle.o, candle.c));
+          var bodyH = Math.max(1, bottom - top);
+          ctx.fillRect(center - body / 2, top, body, bodyH);
+        });
+      }
+
+      ctx.strokeStyle = "rgba(231,184,74,0.45)";
+      ctx.setLineDash([3, 4]);
+      ctx.beginPath();
+      ctx.moveTo(plot.x, yOf(lastPrice));
+      ctx.lineTo(plot.x + plot.w, yOf(lastPrice));
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+
+      ctx.font = "12px " + getComputedStyle(document.body).fontFamily;
+      var lastLabel = usd.format(lastPrice);
+      var lastWidth = ctx.measureText(lastLabel).width + 12;
+      tag(ctx, lastLabel, plot.x + plot.w - lastWidth - 8, yOf(lastPrice), color);
+
+      if (chart.hover != null) {
+        var nearest = nearestPoint(series, lineMode, spec, xOf, chart.hover);
+        if (nearest) {
+          nearest.y = yOf(nearest.price);
+          ctx.strokeStyle = "rgba(246,241,231,0.35)";
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(nearest.x, plot.y);
+          ctx.lineTo(nearest.x, plot.y + plot.h);
+          ctx.stroke();
+          ctx.fillStyle = "#f6f1e7";
+          ctx.beginPath();
+          ctx.arc(nearest.x, nearest.y, 3.5, 0, Math.PI * 2);
+          ctx.fill();
+          var label = usd.format(nearest.price) + "  " + timeLabel(nearest.time, chart.view, true);
+          tag(ctx, label, Math.min(Math.max(plot.x, nearest.x - 40), plot.x + plot.w - 120), Math.max(plot.y + 14, nearest.y - 18), "#1c160d");
+        }
+      }
+
+      var last = lineMode ? series[series.length - 1].p : series[series.length - 1].c;
+      canvas.setAttribute("aria-label", spec.label + " Bitcoin chart, last " + usd.format(last));
+    }
+
+    function nearestPoint(series, lineMode, spec, xOf, hoverX) {
+      var best = null;
+      var bestDist = Infinity;
+      for (var i = 0; i < series.length; i++) {
+        var item = series[i];
+        var time = lineMode ? item.t : item.t + spec.granularity * 500;
+        var price = lineMode ? item.p : item.c;
+        var x = xOf(time);
+        var dist = Math.abs(x - hoverX);
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = { x: x, price: price, time: lineMode ? item.t : item.t, y: null };
+        }
+      }
+      if (!best || bestDist > 40) return null;
+      return best;
+    }
+
+    function tag(ctx, text, x, y, fill) {
+      ctx.font = "12px " + getComputedStyle(document.body).fontFamily;
+      var width = ctx.measureText(text).width + 12;
+      var height = 20;
+      var left = Math.max(8, Math.min(x, ctx.canvas.getBoundingClientRect().width - width - 8));
+      ctx.fillStyle = fill || "#1c160d";
+      roundRect(ctx, left, y - height / 2, width, height, 6);
+      ctx.fill();
+      ctx.fillStyle = "#f6f1e7";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText(text, left + 6, y);
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    function axisLabel(value, span) {
+      if (span < 30) return value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      if (span < 400) return value.toLocaleString("en-US", { maximumFractionDigits: 1 });
+      return value.toLocaleString("en-US", { maximumFractionDigits: 0 });
+    }
+
+    function timeLabel(time, range, withSeconds) {
+      var date = new Date(time);
+      if (range === "7d") {
+        return date.toLocaleDateString([], { month: "short", day: "numeric" });
+      }
+      var opts = { hour: "numeric", minute: "2-digit" };
+      if (withSeconds && (range === "live" || range === "1h")) opts.second = "2-digit";
+      return date.toLocaleTimeString([], opts);
+    }
+
+    function bindChart() {
+      var canvas = el.chart;
+      function hoverFrom(event) {
+        var rect = canvas.getBoundingClientRect();
+        chart.hover = event.clientX - rect.left;
+        var spec = RANGES[chart.view];
+        var series = spec.mode === "line" ? chart.points : chart.candles;
+        if (!series.length) return;
+        requestDraw();
+      }
+      canvas.addEventListener("pointermove", function (event) {
+        if (event.pointerType === "touch") return;
+        hoverFrom(event);
+      });
+      canvas.addEventListener("pointerdown", hoverFrom);
+      canvas.addEventListener("pointerleave", function () {
+        chart.hover = null;
+        requestDraw();
+      });
+      document.querySelectorAll("[data-range]").forEach(function (button) {
+        button.addEventListener("click", function () {
+          var range = button.getAttribute("data-range");
+          if (!RANGES[range] || range === chart.range) return;
+          chart.range = range;
+          document.querySelectorAll("[data-range]").forEach(function (other) {
+            other.setAttribute("aria-selected", other === button ? "true" : "false");
+          });
+          loadRange(range, false);
+        });
+      });
+      el.retry.addEventListener("click", function () { loadRange(chart.range, false); });
+      if (window.ResizeObserver) {
+        new ResizeObserver(function () { requestDraw(); }).observe(canvas.parentElement);
+      } else {
+        window.addEventListener("resize", requestDraw);
+      }
+    }
+
+    function loadAlert() {
+      try {
+        var saved = JSON.parse(localStorage.getItem(ALERT_KEY) || "null");
+        if (!saved) return;
+        if (saved.direction === "above" || saved.direction === "below") {
+          alertState.direction = saved.direction;
+          el.alertDir.value = saved.direction;
+        }
+        if (isFinite(saved.price)) {
+          alertState.price = saved.price;
+          el.alertPrice.value = String(saved.price);
+        }
+        alertState.enabled = !!saved.enabled;
+      } catch (err) {}
+      renderAlert();
+    }
+
+    function saveAlert() {
+      try {
+        localStorage.setItem(ALERT_KEY, JSON.stringify({
+          enabled: alertState.enabled,
+          direction: alertState.direction,
+          price: alertState.price
+        }));
+      } catch (err) {}
+    }
+
+    function renderAlert() {
+      el.alertCard.classList.toggle("armed", alertState.enabled);
+      el.alertToggle.textContent = alertState.enabled ? "Disarm" : "Arm alert";
+      el.alertDir.disabled = alertState.enabled;
+      el.alertPrice.disabled = alertState.enabled;
+      if (!alertState.enabled) {
+        setText(el.alertNote, "A tone and, where the browser allows it, a notification. Saved on this device. Fires on the blended median.");
+        return;
+      }
+      var where = (alertState.direction === "above" ? "above " : "below ") + usd.format(alertState.price);
+      var extra = "";
+      if (window.isSecureContext && "Notification" in window && Notification.permission === "denied") {
+        extra = " Notifications are blocked; the tone and on-page alert still run.";
+      } else if (!window.isSecureContext) {
+        extra = " This page will sound a tone and show an on-page alert. System notifications need localhost or HTTPS.";
+      }
+      var armedNote = alertState.latched
+        ? "Already " + where + ". It will sound the next time the blend crosses back through."
+        : "Armed " + where + ".";
+      setText(el.alertNote, armedNote + extra);
+    }
+
+    function ensureAudio() {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return null;
+      if (!audioCtx) audioCtx = new Ctx();
+      if (audioCtx.state === "suspended") audioCtx.resume();
+      return audioCtx;
+    }
+
+    function beep() {
+      var ctx = ensureAudio();
+      if (!ctx) return;
+      var now = ctx.currentTime;
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(740, now);
+      osc.frequency.exponentialRampToValueAtTime(988, now + 0.12);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.15, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.42);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.44);
+    }
+
+    function showToast(text) {
+      setText(el.toast, text);
+      el.toast.hidden = false;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function () { el.toast.hidden = true; }, 6500);
+    }
+
+    function fireAlert(price) {
+      var message = "Blended BTC median is " + usd.format(price) + ", " +
+        (alertState.direction === "above" ? "above " : "below ") + usd.format(alertState.price) + ".";
+      showToast(message);
+      beep();
+      if (window.isSecureContext && "Notification" in window && Notification.permission === "granted") {
+        try {
+          new Notification("Bitcoin price alert", { body: message, silent: true });
+        } catch (err) {}
+      }
+    }
+
+    function evaluateAlert(price) {
+      if (!alertState.enabled || !isFinite(price) || !isFinite(alertState.price)) return;
+      var hit = alertState.direction === "above" ? price >= alertState.price : price <= alertState.price;
+      if (!alertState.seen) {
+        alertState.seen = true;
+        alertState.latched = hit;
+        renderAlert();
+        return;
+      }
+      if (hit && !alertState.latched && Date.now() - alertState.lastFire > 45000) {
+        alertState.latched = true;
+        alertState.lastFire = Date.now();
+        fireAlert(price);
+        renderAlert();
+      } else if (!hit && alertState.latched) {
+        alertState.latched = false;
+        renderAlert();
+      }
+    }
+
+    function bindAlert() {
+      el.alertForm.addEventListener("submit", function (event) {
+        event.preventDefault();
+        if (alertState.enabled) {
+          alertState.enabled = false;
+          alertState.seen = false;
+          saveAlert();
+          renderAlert();
+          return;
+        }
+        var price = number(el.alertPrice.value);
+        if (!isFinite(price) || price <= 0) {
+          setText(el.alertNote, "Enter a US dollar price greater than zero.");
+          return;
+        }
+        alertState.enabled = true;
+        alertState.direction = el.alertDir.value === "below" ? "below" : "above";
+        alertState.price = price;
+        alertState.seen = false;
+        alertState.latched = false;
+        ensureAudio();
+        if (window.isSecureContext && "Notification" in window && Notification.permission === "default") {
+          Notification.requestPermission().then(renderAlert).catch(function () {});
+        }
+        saveAlert();
+        renderAlert();
+        if (blend.value != null) evaluateAlert(blend.value);
+      });
+      document.addEventListener("pointerdown", function () {
+        if (alertState.enabled) ensureAudio();
+      }, { once: true });
+    }
+
+    function tickUi() {
+      feeds.forEach(renderFeed);
+      renderBlend();
+      renderStatus();
+      renderHero();
+    }
+
+    buildRows();
+    bindChart();
+    bindAlert();
+    loadAlert();
+    loadRange("live", false);
+    pollFallback();
+    if (window.WebSocket) feeds.forEach(connect);
+    setInterval(pollFallback, 4000);
+    setInterval(tickUi, 1000);
+    setInterval(function () { loadRange(chart.range, true); }, 60000);
+  })();
+  </script>
+</body>
+</html>
