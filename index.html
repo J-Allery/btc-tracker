@@ -347,6 +347,38 @@
     }
     .forecast-empty { margin: 0; color: var(--muted); font-size: 13px; }
 
+    .forecast-learn {
+      margin-top: 14px;
+      padding: 12px 14px;
+      background: var(--card-2);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 12px;
+    }
+    .forecast-learn-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+    .forecast-learn h3 { margin: 0; }
+    .learn-reset {
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 650;
+    }
+    .forecast-learn-line {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .forecast-learn-line .mono {
+      font-family: var(--mono);
+      font-variant-numeric: tabular-nums;
+      color: var(--text);
+    }
+
     @media (max-width: 720px) {
       .prices { grid-template-columns: 1fr; }
       .price-pane + .price-pane { border-left: 0; border-top: 1px solid var(--line); }
@@ -479,9 +511,17 @@
         </div>
       </div>
       <p class="forecast-method" id="forecast-method">
-        Built from the last few hours of public 1-minute candles: a damped average of recent minute-to-minute returns for a 5-minute point estimate, and recent realized volatility scaled to 5 minutes for the ranges.
+        Built from the last few hours of public 1-minute candles: a self-tuning, damped average of recent minute-to-minute returns for a 5-minute point estimate, and recent realized volatility scaled to 5 minutes for the ranges. The momentum weight and band width learn from settled forecasts in this browser, including a walk-forward backtest when the page opens, and pick up where they left off after you close it.
       </p>
       <p class="forecast-disclaimer">Short-term crypto moves are mostly noise. Not financial advice.</p>
+
+      <div class="forecast-learn" id="forecast-learn">
+        <div class="forecast-learn-head">
+          <h3>Learning</h3>
+          <button type="button" class="ghost learn-reset" id="forecast-reset">Reset learning</button>
+        </div>
+        <p class="forecast-learn-line" id="forecast-learn-line">Loading recent candles to tune the model…</p>
+      </div>
 
       <h3>Track record</h3>
       <div class="stats forecast-stats">
@@ -554,6 +594,14 @@
     var FORECAST_HORIZON_MS = 5 * 60 * 1000;
     var FORECAST_KEEP = 80;
     var FORECAST_ROWS = 10;
+    var MODEL_KEY = "btc-usd-tracker-model-v1";
+    var DAMP_MIN = 0;
+    var DAMP_MAX = 1;
+    var SCALE_MIN = 0.4;
+    var SCALE_MAX = 2.5;
+    var HALFLIFE_MIN = 8;
+    var HALFLIFE_MAX = 60;
+    var MODEL_RECENT = 40;
 
     var usd = new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -756,8 +804,11 @@
       source: "",
       status: "loading",
       timer: 0,
-      retry: 0
+      retry: 0,
+      candles: null,
+      lastBacktest: null
     };
+    var model = defaultModel();
 
     var el = {
       price: document.getElementById("price"),
@@ -795,7 +846,10 @@
       forecastBase: document.getElementById("forecast-base"),
       forecastHits: document.getElementById("forecast-hits"),
       forecastCover: document.getElementById("forecast-cover"),
-      forecastRows: document.getElementById("forecast-rows")
+      forecastRows: document.getElementById("forecast-rows"),
+      forecastLearn: document.getElementById("forecast-learn"),
+      forecastLearnLine: document.getElementById("forecast-learn-line"),
+      forecastReset: document.getElementById("forecast-reset")
     };
 
     function number(value) {
@@ -1866,8 +1920,60 @@
       return null;
     }
 
-    function computeForecast(candles, spot) {
-      if (!candles || candles.length < 40 || !saneBtc(spot)) return null;
+    function clamp(value, lo, hi) {
+      return Math.min(hi, Math.max(lo, value));
+    }
+
+    function defaultModel() {
+      return {
+        version: 1,
+        damp: 0.45,
+        bandScale: 1,
+        halfLife: 20,
+        learned: 0,
+        liveLearned: 0,
+        backtestLearned: 0,
+        lastLearnedAt: 0,
+        recent: []
+      };
+    }
+
+    function loadModel() {
+      try {
+        var saved = JSON.parse(localStorage.getItem(MODEL_KEY) || "null");
+        if (!saved || typeof saved !== "object" || saved.version !== 1) return;
+        if (isFinite(saved.damp)) model.damp = clamp(saved.damp, DAMP_MIN, DAMP_MAX);
+        if (isFinite(saved.bandScale)) model.bandScale = clamp(saved.bandScale, SCALE_MIN, SCALE_MAX);
+        if (isFinite(saved.halfLife)) model.halfLife = clamp(saved.halfLife, HALFLIFE_MIN, HALFLIFE_MAX);
+        if (isFinite(saved.learned)) model.learned = Math.max(0, Math.round(saved.learned));
+        if (isFinite(saved.liveLearned)) model.liveLearned = Math.max(0, Math.round(saved.liveLearned));
+        if (isFinite(saved.backtestLearned)) model.backtestLearned = Math.max(0, Math.round(saved.backtestLearned));
+        if (isFinite(saved.lastLearnedAt)) model.lastLearnedAt = Math.max(0, saved.lastLearnedAt);
+        if (Array.isArray(saved.recent)) {
+          model.recent = saved.recent.filter(function (row) {
+            return row && isFinite(row.modelAbs) && isFinite(row.baseAbs);
+          }).slice(-MODEL_RECENT);
+        }
+      } catch (err) {}
+    }
+
+    function saveModel() {
+      try {
+        localStorage.setItem(MODEL_KEY, JSON.stringify({
+          version: 1,
+          damp: model.damp,
+          bandScale: model.bandScale,
+          halfLife: model.halfLife,
+          learned: model.learned,
+          liveLearned: model.liveLearned,
+          backtestLearned: model.backtestLearned,
+          lastLearnedAt: model.lastLearnedAt,
+          recent: model.recent.slice(-MODEL_RECENT)
+        }));
+      } catch (err) {}
+    }
+
+    function candleReturns(candles) {
       var returns = [];
       for (var i = 1; i < candles.length; i++) {
         var prev = candles[i - 1].c;
@@ -1876,20 +1982,36 @@
           returns.push(Math.log(next / prev));
         }
       }
-      if (returns.length < 30) return null;
-      var alphaDrift = 1 - Math.exp(Math.log(0.5) / 20);
+      return returns;
+    }
+
+    function driftAt(returns, halfLife, steps) {
+      var alpha = 1 - Math.exp(Math.log(0.5) / halfLife);
+      return ewma(returns, alpha) * steps;
+    }
+
+    function realizedSigma(returns) {
       var alphaVol = 1 - Math.exp(Math.log(0.5) / 45);
-      var mu = ewma(returns, alphaDrift);
       var variance = returns[0] * returns[0];
       for (var v = 1; v < returns.length; v++) {
         variance = alphaVol * returns[v] * returns[v] + (1 - alphaVol) * variance;
       }
       var minSigma = 0.0004;
-      var sigma1 = Math.sqrt(Math.max(variance, minSigma * minSigma));
+      return Math.sqrt(Math.max(variance, minSigma * minSigma));
+    }
+
+    function computeForecast(candles, spot) {
+      if (!candles || candles.length < 40 || !saneBtc(spot)) return null;
+      var returns = candleReturns(candles);
+      if (returns.length < 30) return null;
+      var halfLife = model.halfLife;
+      var damp = model.damp;
+      var bandScale = model.bandScale;
       var steps = FORECAST_HORIZON_MS / 60000;
-      var damp = 0.45;
-      var muH = mu * damp * steps;
-      var sigmaH = sigma1 * Math.sqrt(steps);
+      var driftRaw = driftAt(returns, halfLife, steps);
+      var sigmaRaw = realizedSigma(returns) * Math.sqrt(steps);
+      var muH = damp * driftRaw;
+      var sigmaH = bandScale * sigmaRaw;
       var pred = spot * Math.exp(muH);
       if (!saneBtc(pred)) return null;
       var now = Date.now();
@@ -1907,10 +2029,209 @@
         hi95: pred * Math.exp(1.96 * sigmaH),
         dir: dir,
         sigmaH: sigmaH,
+        damp: damp,
+        bandScale: bandScale,
+        halfLife: halfLife,
+        driftRaw: driftRaw,
+        sigmaRaw: sigmaRaw,
         horizonMs: FORECAST_HORIZON_MS,
         source: forecast.source
       };
     }
+
+    function learnRates(kind) {
+      if (kind === "backtest") {
+        return { dampLr: 0.04, dampCap: 0.025, bandEta: 0.025, bandCap: 0.03 };
+      }
+      return { dampLr: 0.08, dampCap: 0.05, bandEta: 0.045, bandCap: 0.05 };
+    }
+
+    function learnFromForecast(row, kind, returns) {
+      if (!row || !saneBtc(row.actual) || !saneBtc(row.start) || !isFinite(row.driftRaw) || !isFinite(row.sigmaRaw)) return false;
+      if (row.target && row.target <= model.lastLearnedAt) return false;
+      var rates = learnRates(kind);
+      var rAct = Math.log(row.actual / row.start);
+      var driftRaw = row.driftRaw;
+      var sigmaRaw = Math.max(row.sigmaRaw, 1e-8);
+      var err = rAct - model.damp * driftRaw;
+      var ridge = driftRaw * driftRaw + 0.25 * sigmaRaw * sigmaRaw;
+      var step = rates.dampLr * err * driftRaw / ridge;
+      model.damp = clamp(model.damp + clamp(step, -rates.dampCap, rates.dampCap), DAMP_MIN, DAMP_MAX);
+
+      err = rAct - model.damp * driftRaw;
+      var in68 = Math.abs(err) <= sigmaRaw * model.bandScale;
+      var in95 = Math.abs(err) <= 1.96 * sigmaRaw * model.bandScale;
+      var adj = 0.7 * (0.68 - (in68 ? 1 : 0)) + 0.3 * (0.95 - (in95 ? 1 : 0));
+      var logStep = clamp(rates.bandEta * adj, -rates.bandCap, rates.bandCap);
+      model.bandScale = clamp(model.bandScale * Math.exp(logStep), SCALE_MIN, SCALE_MAX);
+
+      if (kind === "backtest" && returns && returns.length >= 30) {
+        var steps = FORECAST_HORIZON_MS / 60000;
+        var cur = Math.pow(rAct - model.damp * driftAt(returns, model.halfLife, steps), 2);
+        var loHl = clamp(model.halfLife * 0.8, HALFLIFE_MIN, HALFLIFE_MAX);
+        var hiHl = clamp(model.halfLife * 1.25, HALFLIFE_MIN, HALFLIFE_MAX);
+        var lo = Math.pow(rAct - model.damp * driftAt(returns, loHl, steps), 2);
+        var hi = Math.pow(rAct - model.damp * driftAt(returns, hiHl, steps), 2);
+        if (lo < cur * 0.92 && lo < hi) model.halfLife = clamp(model.halfLife * 0.98, HALFLIFE_MIN, HALFLIFE_MAX);
+        else if (hi < cur * 0.92 && hi < lo) model.halfLife = clamp(model.halfLife * 1.02, HALFLIFE_MIN, HALFLIFE_MAX);
+      }
+
+      model.recent.push({
+        modelAbs: row.absErr,
+        baseAbs: row.baseAbsErr,
+        in68: !!row.in68,
+        in95: !!row.in95,
+        t: row.target || Date.now()
+      });
+      if (model.recent.length > MODEL_RECENT) model.recent = model.recent.slice(-MODEL_RECENT);
+      model.learned += 1;
+      if (kind === "live") model.liveLearned += 1;
+      else model.backtestLearned += 1;
+      if (row.target) model.lastLearnedAt = Math.max(model.lastLearnedAt, row.target);
+      saveModel();
+      return true;
+    }
+
+    function runBacktest(candles) {
+      var steps = Math.round(FORECAST_HORIZON_MS / 60000);
+      var warmup = 45;
+      var summary = { n: 0, modelAbs: 0, baseAbs: 0, in68: 0, in95: 0 };
+      if (!candles || candles.length < warmup + steps + 1) {
+        forecast.lastBacktest = summary;
+        return summary;
+      }
+      for (var i = warmup; i + steps < candles.length; i += steps) {
+        var made = candles[i].t + 60 * 1000;
+        var target = made + FORECAST_HORIZON_MS;
+        if (target <= model.lastLearnedAt) continue;
+        var window = candles.slice(Math.max(0, i - 239), i + 1);
+        if (window.length < 40) continue;
+        var spot = candles[i].c;
+        var fc = computeForecast(window, spot);
+        if (!fc) continue;
+        fc.t = made;
+        fc.target = target;
+        var actual = candles[i + steps].c;
+        if (!settleRow(fc, actual)) continue;
+        var returns = candleReturns(window);
+        if (!learnFromForecast(fc, "backtest", returns)) continue;
+        summary.n += 1;
+        summary.modelAbs += fc.absErr;
+        summary.baseAbs += fc.baseAbsErr;
+        if (fc.in68) summary.in68 += 1;
+        if (fc.in95) summary.in95 += 1;
+      }
+      forecast.lastBacktest = summary;
+      return summary;
+    }
+
+    function recentLearnStats() {
+      var rows = model.recent;
+      if (!rows.length) return null;
+      var modelAbs = 0, baseAbs = 0, in68 = 0, in95 = 0;
+      for (var i = 0; i < rows.length; i++) {
+        modelAbs += rows[i].modelAbs;
+        baseAbs += rows[i].baseAbs;
+        if (rows[i].in68) in68 += 1;
+        if (rows[i].in95) in95 += 1;
+      }
+      return {
+        n: rows.length,
+        modelMae: modelAbs / rows.length,
+        baseMae: baseAbs / rows.length,
+        cover68: in68 / rows.length,
+        cover95: in95 / rows.length
+      };
+    }
+
+    function renderLearning() {
+      if (!el.forecastLearnLine) return;
+      var parts = [
+        "Momentum <span class=\"mono\">" + model.damp.toFixed(2) + "</span>",
+        "Band scale <span class=\"mono\">" + model.bandScale.toFixed(2) + "</span>"
+      ];
+      if (Math.abs(model.halfLife - 20) >= 0.5) {
+        parts.push("EWMA half-life <span class=\"mono\">" + model.halfLife.toFixed(1) + "m</span>");
+      }
+      if (!model.learned) {
+        parts.push("No forecasts learned from yet");
+      } else {
+        var src;
+        if (model.liveLearned && model.backtestLearned) {
+          src = model.learned + " forecasts (" + model.backtestLearned + " backtest, " + model.liveLearned + " live)";
+        } else if (model.liveLearned) {
+          src = model.learned + " live forecast" + (model.learned === 1 ? "" : "s");
+        } else {
+          src = model.learned + " backtest forecast" + (model.learned === 1 ? "" : "s");
+        }
+        parts.push("Learned from " + src);
+      }
+      var stats = recentLearnStats();
+      var cmp = "Still gathering a comparison with the no-change baseline.";
+      var beating = "";
+      if (stats && stats.n >= 8) {
+        if (stats.modelMae < stats.baseMae * 0.995) {
+          cmp = "Beating the no-change baseline over the last " + stats.n + ".";
+          beating = "yes";
+        } else if (stats.baseMae < stats.modelMae * 0.995) {
+          cmp = "Trailing the no-change baseline over the last " + stats.n + ".";
+          beating = "no";
+        } else {
+          cmp = "About even with the no-change baseline over the last " + stats.n + ".";
+          beating = "even";
+        }
+      }
+      el.forecastLearnLine.innerHTML = parts.join(" · ") + ". " + cmp;
+      var node = el.forecastLearn;
+      if (node) {
+        node.dataset.damp = String(model.damp);
+        node.dataset.bandScale = String(model.bandScale);
+        node.dataset.halfLife = String(model.halfLife);
+        node.dataset.learned = String(model.learned);
+        node.dataset.liveLearned = String(model.liveLearned);
+        node.dataset.backtestLearned = String(model.backtestLearned);
+        node.dataset.beating = beating;
+        if (stats) {
+          node.dataset.modelMae = String(stats.modelMae);
+          node.dataset.baseMae = String(stats.baseMae);
+          node.dataset.cover68 = String(stats.cover68);
+          node.dataset.cover95 = String(stats.cover95);
+          node.dataset.recentN = String(stats.n);
+        }
+        var bt = forecast.lastBacktest;
+        if (bt && bt.n) {
+          node.dataset.backtestN = String(bt.n);
+          node.dataset.backtestModelMae = String(bt.modelAbs / bt.n);
+          node.dataset.backtestBaseMae = String(bt.baseAbs / bt.n);
+          node.dataset.backtestCover68 = String(bt.in68 / bt.n);
+          node.dataset.backtestCover95 = String(bt.in95 / bt.n);
+        }
+      }
+    }
+
+    function resetLearning() {
+      var keepCandles = forecast.candles;
+      model.damp = 0.45;
+      model.bandScale = 1;
+      model.halfLife = 20;
+      model.learned = 0;
+      model.liveLearned = 0;
+      model.backtestLearned = 0;
+      model.lastLearnedAt = 0;
+      model.recent = [];
+      saveModel();
+      if (keepCandles && keepCandles.length) runBacktest(keepCandles);
+      renderForecast();
+    }
+
+    function bindForecast() {
+      if (el.forecastReset) {
+        el.forecastReset.addEventListener("click", function () {
+          resetLearning();
+        });
+      }
+    }
+
 
     function settleRow(row, actual) {
       if (!row || row.actual != null || !saneBtc(actual)) return false;
@@ -1943,8 +2264,10 @@
         if (livePrice != null && age < 2 * 60 * 1000) actual = livePrice;
         if (actual == null && candles && candles.length) actual = candleCloseNear(candles, forecast.pending.target);
         if (actual != null && settleRow(forecast.pending, actual)) {
-          forecast.settled.push(forecast.pending);
+          var settledLive = forecast.pending;
+          forecast.settled.push(settledLive);
           forecast.pending = null;
+          learnFromForecast(settledLive, "live");
           changed = true;
         } else if (age > 4 * 60 * 60 * 1000) {
           forecast.pending = null;
@@ -2007,6 +2330,7 @@
         setText(el.forecastHits, "—");
         setText(el.forecastCover, "—");
         el.forecastRows.innerHTML = '<tr><td class="note" colspan="6">Settled forecasts will show here after the first 5-minute mark. Saved on this device.</td></tr>';
+        renderLearning();
         return;
       }
 
@@ -2038,6 +2362,7 @@
           "<td>" + band + "</td>" +
           "</tr>";
       }).join("");
+      renderLearning();
     }
 
     function scheduleForecastRefresh() {
@@ -2072,7 +2397,9 @@
       var live = forecastSpot();
       fetchForecastCandles().then(function (pack) {
         forecast.source = pack.source;
+        forecast.candles = pack.rows;
         settleForecasts(live, pack.rows);
+        runBacktest(pack.rows);
         var pending = forecast.pending;
         var need = !pending;
         if (force && pending && pending.target > Date.now()) need = false;
@@ -2100,6 +2427,7 @@
     }
 
     function initForecast() {
+      loadModel();
       loadForecastHistory();
       renderForecast();
       if (forecast.pending && forecast.pending.target > Date.now()) {
@@ -2137,6 +2465,7 @@
     buildRows();
     bindChart();
     bindAlert();
+    bindForecast();
     loadAlert();
     loadRange("live", false);
     initForecast();
