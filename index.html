@@ -197,8 +197,8 @@
     .stat dd { margin: 6px 0 0; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 18px; }
     .stat .minor { display: block; margin-top: 4px; color: var(--muted); font-family: var(--sans); font-size: 12px; letter-spacing: 0; text-transform: none; }
 
-    .chart-card, .alert-card { margin-top: 14px; padding: 16px 16px 14px; }
-    .chart-head, .alert-head {
+    .chart-card, .alert-card, .forecast-card { margin-top: 14px; padding: 16px 16px 14px; }
+    .chart-head, .alert-head, .forecast-head {
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -279,6 +279,74 @@
       z-index: 5;
     }
 
+
+    .forecast-hero {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 8px 16px;
+      align-items: end;
+    }
+    #forecast-price { font-size: clamp(32px, 4.6vw, 48px); }
+    .forecast-bands {
+      background: var(--card-2);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 12px;
+      padding: 12px 14px;
+    }
+    .forecast-bands p { margin: 0; }
+    .forecast-bands p + p { margin-top: 10px; }
+    .forecast-band-label {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .forecast-band-value {
+      font-family: var(--mono);
+      font-variant-numeric: tabular-nums;
+      font-size: 15px;
+    }
+    #forecast-countdown {
+      color: var(--muted);
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+    }
+    .forecast-method { margin: 12px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; max-width: 78ch; }
+    .forecast-disclaimer { margin: 6px 0 0; color: var(--faint); font-size: 12px; line-height: 1.45; }
+    .forecast-card h3 { margin: 18px 0 10px; font-size: 14px; font-weight: 640; letter-spacing: -0.01em; }
+    .forecast-stats { margin: 0; padding: 0; grid-template-columns: repeat(4, 1fr); }
+    .forecast-table-wrap { overflow-x: auto; margin-top: 8px; }
+    .forecast-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .forecast-table th {
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-align: left;
+      font-weight: 620;
+      padding: 8px 10px 8px 0;
+      border-bottom: 1px solid var(--line);
+      white-space: nowrap;
+    }
+    .forecast-table td {
+      font-family: var(--mono);
+      font-variant-numeric: tabular-nums;
+      padding: 8px 10px 8px 0;
+      border-bottom: 1px solid var(--line);
+      white-space: nowrap;
+    }
+    .forecast-table td.note {
+      font-family: var(--sans);
+      color: var(--muted);
+    }
+    .forecast-empty { margin: 0; color: var(--muted); font-size: 13px; }
+
     @media (max-width: 720px) {
       .prices { grid-template-columns: 1fr; }
       .price-pane + .price-pane { border-left: 0; border-top: 1px solid var(--line); }
@@ -287,6 +355,9 @@
       .chart-frame { height: 240px; }
       .stats { grid-template-columns: 1fr 1fr; }
       .stats .stat:last-child { grid-column: 1 / -1; }
+      .forecast-hero { grid-template-columns: 1fr; }
+      .forecast-stats { grid-template-columns: 1fr 1fr; }
+      .forecast-stats .stat:last-child { grid-column: auto; }
     }
     @media (prefers-reduced-motion: reduce) {
       .flash-up, .flash-down, .dot.fresh, .dot.wait { animation: none; }
@@ -381,6 +452,75 @@
       </div>
     </section>
 
+
+    <section class="card forecast-card" id="forecast-card" aria-label="Ten-minute Bitcoin forecast">
+      <div class="forecast-head">
+        <h2>Forecast</h2>
+        <span id="forecast-countdown">Loading…</span>
+      </div>
+      <div class="forecast-hero">
+        <div>
+          <p class="kicker">10 minutes ahead</p>
+          <p class="px" id="forecast-price">—</p>
+          <div class="subrow">
+            <span class="change flat" id="forecast-dir">—</span>
+            <span class="hint" id="forecast-move"></span>
+          </div>
+        </div>
+        <div class="forecast-bands">
+          <p>
+            <span class="forecast-band-label">Likely range (~68%)</span>
+            <span class="forecast-band-value" id="forecast-68">—</span>
+          </p>
+          <p>
+            <span class="forecast-band-label">Wider range (~95%)</span>
+            <span class="forecast-band-value" id="forecast-95">—</span>
+          </p>
+        </div>
+      </div>
+      <p class="forecast-method" id="forecast-method">
+        Built from the last few hours of public 1-minute candles: a damped average of recent minute-to-minute returns for the point estimate, and recent realized volatility for the ranges.
+      </p>
+      <p class="forecast-disclaimer">Short-term crypto moves are mostly noise. Not financial advice.</p>
+
+      <h3>Track record</h3>
+      <div class="stats forecast-stats">
+        <div class="stat">
+          <dt>Model error</dt>
+          <dd id="forecast-mae">—</dd>
+        </div>
+        <div class="stat">
+          <dt>No-change error</dt>
+          <dd id="forecast-base">—</dd>
+        </div>
+        <div class="stat">
+          <dt>Direction hits</dt>
+          <dd id="forecast-hits">—</dd>
+        </div>
+        <div class="stat">
+          <dt>Inside 68% band</dt>
+          <dd id="forecast-cover">—</dd>
+        </div>
+      </div>
+      <div class="forecast-table-wrap">
+        <table class="forecast-table" id="forecast-table">
+          <thead>
+            <tr>
+              <th>Made</th>
+              <th>Target</th>
+              <th>Forecast</th>
+              <th>Actual</th>
+              <th>Error</th>
+              <th>68%</th>
+            </tr>
+          </thead>
+          <tbody id="forecast-rows">
+            <tr><td class="note" colspan="6">Settled forecasts will show here after the first 10-minute mark. Saved on this device.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
     <section class="card alert-card" id="alert-card">
       <div class="alert-head">
         <h2>Price alert</h2>
@@ -410,6 +550,10 @@
     var FRESH_MS = 10000;
     var USDT_HOLD_MS = 60000;
     var ALERT_KEY = "btc-usd-tracker-alert";
+    var FORECAST_KEY = "btc-usd-tracker-forecasts";
+    var FORECAST_HORIZON_MS = 10 * 60 * 1000;
+    var FORECAST_KEEP = 80;
+    var FORECAST_ROWS = 10;
 
     var usd = new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -606,6 +750,14 @@
     var drawQueued = false;
     var toastTimer = 0;
     var audioCtx = null;
+    var forecast = {
+      pending: null,
+      settled: [],
+      source: "",
+      status: "loading",
+      timer: 0,
+      retry: 0
+    };
 
     var el = {
       price: document.getElementById("price"),
@@ -632,7 +784,18 @@
       alertPrice: document.getElementById("alert-price"),
       alertToggle: document.getElementById("alert-toggle"),
       alertNote: document.getElementById("alert-note"),
-      toast: document.getElementById("toast")
+      toast: document.getElementById("toast"),
+      forecastPrice: document.getElementById("forecast-price"),
+      forecastDir: document.getElementById("forecast-dir"),
+      forecastMove: document.getElementById("forecast-move"),
+      forecast68: document.getElementById("forecast-68"),
+      forecast95: document.getElementById("forecast-95"),
+      forecastCountdown: document.getElementById("forecast-countdown"),
+      forecastMae: document.getElementById("forecast-mae"),
+      forecastBase: document.getElementById("forecast-base"),
+      forecastHits: document.getElementById("forecast-hits"),
+      forecastCover: document.getElementById("forecast-cover"),
+      forecastRows: document.getElementById("forecast-rows")
     };
 
     function number(value) {
@@ -1187,12 +1350,20 @@
         });
       }
       if (!isFinite(min) || !isFinite(max)) return;
+      var pendingFc = forecastOverlay();
+      if (pendingFc) {
+        if (pendingFc.lo68 < min) min = pendingFc.lo68;
+        if (pendingFc.hi68 > max) max = pendingFc.hi68;
+        if (pendingFc.pred < min) min = pendingFc.pred;
+        if (pendingFc.pred > max) max = pendingFc.pred;
+      }
       if (min === max) { min -= 1; max += 1; }
       var padY = (max - min) * 0.08;
       min -= padY;
       max += padY;
       var t0 = series[0].t;
       var t1 = series[series.length - 1].t + (lineMode ? 0 : spec.granularity * 1000);
+      if (pendingFc && pendingFc.target > t1) t1 = pendingFc.target;
       if (t1 <= t0) t1 = t0 + 1;
 
       function yOf(price) { return plot.y + ((max - price) / (max - min)) * plot.h; }
@@ -1296,12 +1467,54 @@
       ctx.lineTo(plot.x + plot.w, yOf(lastPrice));
       ctx.stroke();
       ctx.setLineDash([]);
+
+      if (pendingFc && pendingFc.target > t0) {
+        var lastTime = lineMode ? series[series.length - 1].t : series[series.length - 1].t + spec.granularity * 1000;
+        var xStart = xOf(Math.min(Math.max(lastTime, t0), pendingFc.target));
+        var xEnd = xOf(pendingFc.target);
+        ctx.fillStyle = "rgba(231,184,74,0.08)";
+        ctx.beginPath();
+        ctx.moveTo(xStart, yOf(pendingFc.lo95));
+        ctx.lineTo(xEnd, yOf(pendingFc.lo95));
+        ctx.lineTo(xEnd, yOf(pendingFc.hi95));
+        ctx.lineTo(xStart, yOf(pendingFc.hi95));
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "rgba(231,184,74,0.18)";
+        ctx.beginPath();
+        ctx.moveTo(xStart, yOf(pendingFc.lo68));
+        ctx.lineTo(xEnd, yOf(pendingFc.lo68));
+        ctx.lineTo(xEnd, yOf(pendingFc.hi68));
+        ctx.lineTo(xStart, yOf(pendingFc.hi68));
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = "rgba(231,184,74,0.95)";
+        ctx.lineWidth = 1.6;
+        ctx.setLineDash([5, 4]);
+        ctx.beginPath();
+        ctx.moveTo(xStart, yOf(lastPrice));
+        ctx.lineTo(xEnd, yOf(pendingFc.pred));
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = "#e7b84a";
+        ctx.beginPath();
+        ctx.arc(xEnd, yOf(pendingFc.pred), 3.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
       ctx.restore();
 
       ctx.font = "12px " + getComputedStyle(document.body).fontFamily;
       var lastLabel = usd.format(lastPrice);
       var lastWidth = ctx.measureText(lastLabel).width + 12;
       tag(ctx, lastLabel, plot.x + plot.w - lastWidth - 8, yOf(lastPrice), color);
+
+      if (pendingFc && pendingFc.target > t0) {
+        var fcLabel = usd.format(pendingFc.pred);
+        var fcY = yOf(pendingFc.pred);
+        var lastY = yOf(lastPrice);
+        if (Math.abs(fcY - lastY) < 18) fcY = lastY + (fcY >= lastY ? 18 : -18);
+        tag(ctx, fcLabel, plot.x + plot.w - ctx.measureText(fcLabel).width - 20, fcY, "#a97820");
+      }
 
       if (chart.hover != null) {
         var nearest = nearestPoint(series, lineMode, spec, xOf, chart.hover);
@@ -1569,11 +1782,347 @@
       }, { once: true });
     }
 
+
+    function forecastSpot() {
+      if (blend.value != null && isFinite(blend.value)) return blend.value;
+      if (isFinite(byId.coinbase.price)) return byId.coinbase.price;
+      return null;
+    }
+
+    function forecastOverlay() {
+      if (chart.view !== "live" && chart.view !== "1h") return null;
+      var pending = forecast.pending;
+      if (!pending || !isFinite(pending.pred) || pending.target <= Date.now()) return null;
+      return pending;
+    }
+
+    function loadForecastHistory() {
+      try {
+        var raw = localStorage.getItem(FORECAST_KEY);
+        if (!raw) return;
+        var saved = JSON.parse(raw);
+        if (!saved || typeof saved !== "object") return;
+        if (saved.pending && isFinite(saved.pending.pred) && isFinite(saved.pending.target)) {
+          forecast.pending = saved.pending;
+        }
+        if (Array.isArray(saved.settled)) forecast.settled = saved.settled.filter(validSettled);
+      } catch (err) {}
+    }
+
+    function validSettled(row) {
+      return row && isFinite(row.pred) && isFinite(row.actual) && isFinite(row.target);
+    }
+
+    function saveForecastHistory() {
+      try {
+        localStorage.setItem(FORECAST_KEY, JSON.stringify({
+          version: 1,
+          pending: forecast.pending,
+          settled: forecast.settled.slice(-FORECAST_KEEP)
+        }));
+      } catch (err) {}
+    }
+
+    function ewma(values, alpha) {
+      var state = values[0];
+      for (var i = 1; i < values.length; i++) state = alpha * values[i] + (1 - alpha) * state;
+      return state;
+    }
+
+    function fetchForecastCandles() {
+      var end = Date.now();
+      var start = end - 4 * 60 * 60 * 1000;
+      return fetchCoinbaseCandles(60, start, end).then(function (rows) {
+        if (!rows || rows.length < 40) throw new Error("short");
+        return { rows: rows, source: "Coinbase" };
+      }).catch(function () {
+        return fetchKrakenCandles(60, start).then(function (rows) {
+          if (!rows || rows.length < 40) throw new Error("short");
+          return { rows: rows, source: "Kraken" };
+        });
+      });
+    }
+
+    function candleCloseNear(candles, time) {
+      var best = null;
+      var bestDist = Infinity;
+      for (var i = 0; i < candles.length; i++) {
+        var closeTime = candles[i].t + 60 * 1000;
+        var dist = Math.abs(closeTime - time);
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = candles[i].c;
+        }
+      }
+      if (best != null && bestDist <= 3 * 60 * 1000 && saneBtc(best)) return best;
+      return null;
+    }
+
+    function computeForecast(candles, spot) {
+      if (!candles || candles.length < 40 || !saneBtc(spot)) return null;
+      var returns = [];
+      for (var i = 1; i < candles.length; i++) {
+        var prev = candles[i - 1].c;
+        var next = candles[i].c;
+        if (prev > 0 && next > 0 && isFinite(prev) && isFinite(next)) {
+          returns.push(Math.log(next / prev));
+        }
+      }
+      if (returns.length < 30) return null;
+      var alphaDrift = 1 - Math.exp(Math.log(0.5) / 20);
+      var alphaVol = 1 - Math.exp(Math.log(0.5) / 45);
+      var mu = ewma(returns, alphaDrift);
+      var variance = returns[0] * returns[0];
+      for (var v = 1; v < returns.length; v++) {
+        variance = alphaVol * returns[v] * returns[v] + (1 - alphaVol) * variance;
+      }
+      var minSigma = 0.0004;
+      var sigma1 = Math.sqrt(Math.max(variance, minSigma * minSigma));
+      var steps = 10;
+      var damp = 0.45;
+      var muH = mu * damp * steps;
+      var sigmaH = sigma1 * Math.sqrt(steps);
+      var pred = spot * Math.exp(muH);
+      if (!saneBtc(pred)) return null;
+      var now = Date.now();
+      var dir = "flat";
+      if (muH > 0.25 * sigmaH) dir = "up";
+      else if (muH < -0.25 * sigmaH) dir = "down";
+      return {
+        t: now,
+        target: now + FORECAST_HORIZON_MS,
+        start: spot,
+        pred: pred,
+        lo68: pred * Math.exp(-sigmaH),
+        hi68: pred * Math.exp(sigmaH),
+        lo95: pred * Math.exp(-1.96 * sigmaH),
+        hi95: pred * Math.exp(1.96 * sigmaH),
+        dir: dir,
+        sigmaH: sigmaH,
+        source: forecast.source
+      };
+    }
+
+    function settleRow(row, actual) {
+      if (!row || row.actual != null || !saneBtc(actual)) return false;
+      var err = actual - row.pred;
+      var baseErr = actual - row.start;
+      var dirHit;
+      if (row.dir === "flat") {
+        var flatBand = Math.max(0.25 * (row.sigmaH || 0) * row.start, 5);
+        dirHit = Math.abs(baseErr) <= flatBand;
+      } else {
+        dirHit = (row.dir === "up" && actual > row.start) || (row.dir === "down" && actual < row.start);
+      }
+      row.actual = actual;
+      row.absErr = Math.abs(err);
+      row.pctErr = Math.abs(err / actual) * 100;
+      row.signedErr = err;
+      row.baseAbsErr = Math.abs(baseErr);
+      row.dirHit = dirHit;
+      row.in68 = actual >= row.lo68 && actual <= row.hi68;
+      row.in95 = actual >= row.lo95 && actual <= row.hi95;
+      return true;
+    }
+
+    function settleForecasts(livePrice, candles) {
+      var now = Date.now();
+      var changed = false;
+      if (forecast.pending && forecast.pending.target <= now && forecast.pending.actual == null) {
+        var age = now - forecast.pending.target;
+        var actual = null;
+        if (livePrice != null && age < 2 * 60 * 1000) actual = livePrice;
+        if (actual == null && candles && candles.length) actual = candleCloseNear(candles, forecast.pending.target);
+        if (actual != null && settleRow(forecast.pending, actual)) {
+          forecast.settled.push(forecast.pending);
+          forecast.pending = null;
+          changed = true;
+        } else if (age > 4 * 60 * 60 * 1000) {
+          forecast.pending = null;
+          changed = true;
+        }
+      }
+      if (forecast.settled.length > FORECAST_KEEP) {
+        forecast.settled = forecast.settled.slice(-FORECAST_KEEP);
+        changed = true;
+      }
+      if (changed) saveForecastHistory();
+      return changed;
+    }
+
+    function formatCountdown(ms) {
+      var total = Math.max(0, Math.ceil(ms / 1000));
+      var m = Math.floor(total / 60);
+      var s = total % 60;
+      return m + ":" + (s < 10 ? "0" : "") + s;
+    }
+
+    function renderForecast() {
+      var pending = forecast.pending;
+      if (pending && isFinite(pending.pred)) {
+        setText(el.forecastPrice, usd.format(pending.pred));
+        var delta = pending.pred - pending.start;
+        var pct = pending.start ? (delta / pending.start) * 100 : 0;
+        var dirText = pending.dir === "up" ? "Up" : pending.dir === "down" ? "Down" : "Flat";
+        setText(el.forecastDir, dirText);
+        el.forecastDir.className = "change " + pending.dir;
+        setText(el.forecastMove, signedUsd(delta) + "   " + signedPct(pct));
+        setText(el.forecast68, usd.format(pending.lo68) + " – " + usd.format(pending.hi68));
+        setText(el.forecast95, usd.format(pending.lo95) + " – " + usd.format(pending.hi95));
+      } else if (forecast.status === "error") {
+        setText(el.forecastPrice, "—");
+        setText(el.forecastDir, "—");
+        el.forecastDir.className = "change flat";
+        setText(el.forecastMove, "");
+        setText(el.forecast68, "—");
+        setText(el.forecast95, "—");
+      }
+
+      var remain = pending && pending.target > Date.now() ? pending.target - Date.now() : 0;
+      if (pending && remain > 0) {
+        setText(el.forecastCountdown, "Settles in " + formatCountdown(remain));
+      } else if (forecast.status === "loading") {
+        setText(el.forecastCountdown, "Loading recent candles…");
+      } else if (forecast.status === "error") {
+        setText(el.forecastCountdown, "Retrying candle history…");
+      } else if (pending && pending.target <= Date.now()) {
+        setText(el.forecastCountdown, "Settling…");
+      } else {
+        setText(el.forecastCountdown, "Next forecast shortly");
+      }
+
+      var settled = forecast.settled;
+      if (!settled.length) {
+        setText(el.forecastMae, "—");
+        setText(el.forecastBase, "—");
+        setText(el.forecastHits, "—");
+        setText(el.forecastCover, "—");
+        el.forecastRows.innerHTML = '<tr><td class="note" colspan="6">Settled forecasts will show here after the first 10-minute mark. Saved on this device.</td></tr>';
+        return;
+      }
+
+      var mae = 0, maePct = 0, base = 0, hits = 0, cover = 0;
+      settled.forEach(function (row) {
+        mae += row.absErr;
+        maePct += row.pctErr;
+        base += row.baseAbsErr;
+        if (row.dirHit) hits += 1;
+        if (row.in68) cover += 1;
+      });
+      var n = settled.length;
+      setText(el.forecastMae, usd.format(mae / n));
+      el.forecastMae.innerHTML = usd.format(mae / n) + '<span class="minor">' + (maePct / n).toFixed(2) + "% mean abs. error · " + n + " settled</span>";
+      el.forecastBase.innerHTML = usd.format(base / n) + '<span class="minor">If the price had stayed put</span>';
+      el.forecastHits.innerHTML = Math.round((hits / n) * 100) + "%" + '<span class="minor">' + hits + " of " + n + " called the direction</span>";
+      el.forecastCover.innerHTML = Math.round((cover / n) * 100) + "%" + '<span class="minor">' + cover + " of " + n + " landed in the 68% band</span>";
+
+      var rows = settled.slice(-FORECAST_ROWS).reverse();
+      el.forecastRows.innerHTML = rows.map(function (row) {
+        var errClass = row.signedErr > 0 ? "up" : row.signedErr < 0 ? "down" : "";
+        var band = row.in68 ? "In" : "Out";
+        return "<tr>" +
+          "<td>" + clock(row.t) + "</td>" +
+          "<td>" + clock(row.target) + "</td>" +
+          "<td>" + usd.format(row.pred) + "</td>" +
+          "<td>" + usd.format(row.actual) + "</td>" +
+          "<td class=\"" + errClass + "\">" + signedUsd(row.signedErr) + "</td>" +
+          "<td>" + band + "</td>" +
+          "</tr>";
+      }).join("");
+    }
+
+    function scheduleForecastRefresh() {
+      if (forecast.timer) clearTimeout(forecast.timer);
+      var delay = 15000;
+      if (forecast.pending && forecast.pending.target > Date.now()) {
+        delay = Math.min(FORECAST_HORIZON_MS, Math.max(1000, forecast.pending.target - Date.now() + 750));
+      }
+      forecast.timer = setTimeout(function () {
+        refreshForecast(false);
+      }, delay);
+    }
+
+    function issueForecast(candles) {
+      var spot = forecastSpot();
+      if (spot == null && candles.length) spot = candles[candles.length - 1].c;
+      var next = computeForecast(candles, spot);
+      if (!next) return false;
+      forecast.pending = next;
+      forecast.status = "ready";
+      saveForecastHistory();
+      renderForecast();
+      requestDraw();
+      return true;
+    }
+
+    function refreshForecast(force) {
+      if (forecast.retry) {
+        clearTimeout(forecast.retry);
+        forecast.retry = 0;
+      }
+      var live = forecastSpot();
+      fetchForecastCandles().then(function (pack) {
+        forecast.source = pack.source;
+        settleForecasts(live, pack.rows);
+        var pending = forecast.pending;
+        var need = !pending;
+        if (force && pending && pending.target > Date.now()) need = false;
+        if (need) {
+          if (!issueForecast(pack.rows)) {
+            forecast.status = "error";
+            renderForecast();
+            forecast.retry = setTimeout(function () { refreshForecast(true); }, 20000);
+            scheduleForecastRefresh();
+            return;
+          }
+        } else {
+          forecast.status = "ready";
+          renderForecast();
+          requestDraw();
+        }
+        scheduleForecastRefresh();
+      }).catch(function () {
+        settleForecasts(live, null);
+        if (!forecast.pending) forecast.status = "error";
+        renderForecast();
+        forecast.retry = setTimeout(function () { refreshForecast(false); }, 20000);
+        scheduleForecastRefresh();
+      });
+    }
+
+    function initForecast() {
+      loadForecastHistory();
+      renderForecast();
+      if (forecast.pending && forecast.pending.target > Date.now()) {
+        forecast.status = "ready";
+        renderForecast();
+        requestDraw();
+      }
+      refreshForecast(false);
+    }
+
+    function tickForecast() {
+      var live = forecastSpot();
+      if (settleForecasts(live, null)) {
+        renderForecast();
+        requestDraw();
+        if (!forecast.pending) refreshForecast(false);
+        return;
+      }
+      var pending = forecast.pending;
+      if (pending && pending.target > Date.now()) {
+        setText(el.forecastCountdown, "Settles in " + formatCountdown(pending.target - Date.now()));
+      } else if (pending && pending.target <= Date.now()) {
+        setText(el.forecastCountdown, "Settling…");
+      }
+    }
+
     function tickUi() {
       feeds.forEach(renderFeed);
       renderBlend();
       renderStatus();
       renderHero();
+      tickForecast();
     }
 
     buildRows();
@@ -1581,6 +2130,7 @@
     bindAlert();
     loadAlert();
     loadRange("live", false);
+    initForecast();
     pollFallback();
     if (window.WebSocket) feeds.forEach(connect);
     setInterval(pollFallback, 4000);
