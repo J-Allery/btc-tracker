@@ -453,14 +453,14 @@
     </section>
 
 
-    <section class="card forecast-card" id="forecast-card" aria-label="Ten-minute Bitcoin forecast">
+    <section class="card forecast-card" id="forecast-card" aria-label="Five-minute Bitcoin forecast">
       <div class="forecast-head">
         <h2>Forecast</h2>
         <span id="forecast-countdown">Loading…</span>
       </div>
       <div class="forecast-hero">
         <div>
-          <p class="kicker">10 minutes ahead</p>
+          <p class="kicker">5 minutes ahead</p>
           <p class="px" id="forecast-price">—</p>
           <div class="subrow">
             <span class="change flat" id="forecast-dir">—</span>
@@ -479,7 +479,7 @@
         </div>
       </div>
       <p class="forecast-method" id="forecast-method">
-        Built from the last few hours of public 1-minute candles: a damped average of recent minute-to-minute returns for the point estimate, and recent realized volatility for the ranges.
+        Built from the last few hours of public 1-minute candles: a damped average of recent minute-to-minute returns for a 5-minute point estimate, and recent realized volatility scaled to 5 minutes for the ranges.
       </p>
       <p class="forecast-disclaimer">Short-term crypto moves are mostly noise. Not financial advice.</p>
 
@@ -515,7 +515,7 @@
             </tr>
           </thead>
           <tbody id="forecast-rows">
-            <tr><td class="note" colspan="6">Settled forecasts will show here after the first 10-minute mark. Saved on this device.</td></tr>
+            <tr><td class="note" colspan="6">Settled forecasts will show here after the first 5-minute mark. Saved on this device.</td></tr>
           </tbody>
         </table>
       </div>
@@ -550,8 +550,8 @@
     var FRESH_MS = 10000;
     var USDT_HOLD_MS = 60000;
     var ALERT_KEY = "btc-usd-tracker-alert";
-    var FORECAST_KEY = "btc-usd-tracker-forecasts";
-    var FORECAST_HORIZON_MS = 10 * 60 * 1000;
+    var FORECAST_KEY = "btc-usd-tracker-forecasts-v2-5m";
+    var FORECAST_HORIZON_MS = 5 * 60 * 1000;
     var FORECAST_KEEP = 80;
     var FORECAST_ROWS = 10;
 
@@ -1802,15 +1802,23 @@
         if (!raw) return;
         var saved = JSON.parse(raw);
         if (!saved || typeof saved !== "object") return;
-        if (saved.pending && isFinite(saved.pending.pred) && isFinite(saved.pending.target)) {
+        if (saved.pending && isFinite(saved.pending.pred) && isFinite(saved.pending.target) && sameHorizon(saved.pending)) {
           forecast.pending = saved.pending;
         }
-        if (Array.isArray(saved.settled)) forecast.settled = saved.settled.filter(validSettled);
+        if (Array.isArray(saved.settled)) forecast.settled = saved.settled.filter(function (row) {
+          return validSettled(row) && sameHorizon(row);
+        });
       } catch (err) {}
     }
 
     function validSettled(row) {
       return row && isFinite(row.pred) && isFinite(row.actual) && isFinite(row.target);
+    }
+
+    function sameHorizon(row) {
+      if (!row) return false;
+      if (row.horizonMs == null) return true;
+      return Math.abs(row.horizonMs - FORECAST_HORIZON_MS) < 1000;
     }
 
     function saveForecastHistory() {
@@ -1878,7 +1886,7 @@
       }
       var minSigma = 0.0004;
       var sigma1 = Math.sqrt(Math.max(variance, minSigma * minSigma));
-      var steps = 10;
+      var steps = FORECAST_HORIZON_MS / 60000;
       var damp = 0.45;
       var muH = mu * damp * steps;
       var sigmaH = sigma1 * Math.sqrt(steps);
@@ -1899,6 +1907,7 @@
         hi95: pred * Math.exp(1.96 * sigmaH),
         dir: dir,
         sigmaH: sigmaH,
+        horizonMs: FORECAST_HORIZON_MS,
         source: forecast.source
       };
     }
@@ -1997,7 +2006,7 @@
         setText(el.forecastBase, "—");
         setText(el.forecastHits, "—");
         setText(el.forecastCover, "—");
-        el.forecastRows.innerHTML = '<tr><td class="note" colspan="6">Settled forecasts will show here after the first 10-minute mark. Saved on this device.</td></tr>';
+        el.forecastRows.innerHTML = '<tr><td class="note" colspan="6">Settled forecasts will show here after the first 5-minute mark. Saved on this device.</td></tr>';
         return;
       }
 
